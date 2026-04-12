@@ -3,10 +3,12 @@ import { useAuth } from '@clerk/react';
 import { getSources, toggleSource, suggestSource } from '@/lib/api';
 
 export function useSources() {
-  const { getToken, isSignedIn } = useAuth();
+  const { getToken, isSignedIn, isLoaded } = useAuth();
 
   return useQuery({
     queryKey: ['sources', isSignedIn],
+    // Só correr depois do Clerk determinar o estado de autenticação
+    enabled: isLoaded,
     queryFn: async () => {
       const token = isSignedIn ? await getToken() : null;
       return getSources(token);

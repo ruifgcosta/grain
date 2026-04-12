@@ -23,21 +23,75 @@ function timeAgo(timestamp: number): string {
   return `${Math.floor(diff / 86400)}d`;
 }
 
+/** Extrai o hostname para usar como URL do favicon */
+function faviconUrl(websiteUrl: string): string {
+  try {
+    const host = new URL(websiteUrl).hostname;
+    return `https://www.google.com/s2/favicons?domain=${host}&sz=64`;
+  } catch {
+    return '';
+  }
+}
+
+/** Fundo de placeholder quando não há imagem */
+function ArticlePlaceholder({
+  color,
+  websiteUrl,
+  sourceName,
+}: {
+  color: string;
+  websiteUrl?: string;
+  sourceName: string;
+}) {
+  const favicon = websiteUrl ? faviconUrl(websiteUrl) : '';
+
+  return (
+    <div
+      className="w-full flex items-center justify-center"
+      style={{
+        aspectRatio: '16/7',
+        backgroundColor: color + '22', // cor da fonte com 13% opacidade
+        borderBottom: `1px solid ${color}33`,
+      }}
+    >
+      {favicon ? (
+        <img
+          src={favicon}
+          alt={sourceName}
+          className="w-8 h-8 opacity-40"
+        />
+      ) : (
+        <span
+          className="text-xl font-display font-extrabold opacity-20"
+          style={{ color }}
+        >
+          {sourceName[0]}
+        </span>
+      )}
+    </div>
+  );
+}
+
 export default function ArticleCard({ article, isRead }: ArticleCardProps) {
   const { isSignedIn } = useAuth();
   const { openSignIn } = useClerk();
   const [summaryOpen, setSummaryOpen] = useState(false);
+  const [imgError, setImgError] = useState(false);
   const [followDone, setFollowDone] = useState(false);
 
-  const summaryMutation = useSummary();
+  const { state: summaryState, fetchSummary } = useSummary(article.id);
   const followMutation = useFollowTopic();
 
   const title = article.translated_title ?? article.original_title;
   const desc  = article.translated_desc  ?? article.original_desc;
-  const color = article.source_color ?? '#555';
+  const color = article.source_color ?? '#888';
+  const showImage = article.image_url && !imgError;
+  const showPlaceholder = !showImage;
 
   function handleSummary() {
-    if (!summaryOpen) summaryMutation.mutate(article.id);
+    if (!summaryOpen && summaryState.status === 'idle') {
+      fetchSummary();
+    }
     setSummaryOpen(prev => !prev);
   }
 
@@ -52,32 +106,39 @@ export default function ArticleCard({ article, isRead }: ArticleCardProps) {
 
   return (
     <article
-      className={`group relative flex flex-col gap-3 rounded-card border transition-colors overflow-hidden
+      className={`group relative flex flex-col rounded-card border transition-colors overflow-hidden
         ${isRead
           ? 'border-border bg-bg2/50 opacity-60'
           : 'border-border bg-bg2 hover:border-border2'
         }`}
     >
-      {/* ── Imagem de capa ── */}
-      {article.image_url && (
-        <a
-          href={article.original_url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="block w-full overflow-hidden"
-        >
+      {/* ── Imagem / Placeholder ── */}
+      <a
+        href={article.original_url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="block w-full"
+        tabIndex={-1}
+      >
+        {showImage ? (
           <img
-            src={article.image_url}
+            src={article.image_url!}
             alt=""
-            className="w-full h-40 object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+            style={{ aspectRatio: '16/7', width: '100%', objectFit: 'cover', display: 'block' }}
             loading="lazy"
-            onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
+            onError={() => setImgError(true)}
           />
-        </a>
-      )}
+        ) : (
+          <ArticlePlaceholder
+            color={color}
+            websiteUrl={article.original_url}
+            sourceName={article.source_name}
+          />
+        )}
+      </a>
 
-      {/* ── Corpo do card ── */}
-      <div className="flex flex-col gap-3 p-4 pt-3">
+      {/* ── Corpo ── */}
+      <div className="flex flex-col gap-3 p-4">
         {/* Cabeçalho: fonte + tempo */}
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
@@ -104,9 +165,8 @@ export default function ArticleCard({ article, isRead }: ArticleCardProps) {
           href={article.original_url}
           target="_blank"
           rel="noopener noreferrer"
-          className="group/link"
         >
-          <h2 className="text-base font-semibold text-text leading-snug group-hover/link:text-gold transition-colors line-clamp-3">
+          <h2 className="text-base font-semibold text-text leading-snug hover:text-gold transition-colors line-clamp-3">
             {title}
           </h2>
         </a>
@@ -121,33 +181,46 @@ export default function ArticleCard({ article, isRead }: ArticleCardProps) {
         {/* Resumo IA expandido */}
         {summaryOpen && (
           <div className="p-3 rounded-xl bg-green-bg border border-green-bdr text-sm text-text leading-relaxed">
-            {summaryMutation.isPending && (
+            {summaryState.status === 'loading' && (
               <div className="flex items-center gap-2 text-muted">
                 <Loader2 size={14} className="animate-spin" />
                 <span>A gerar resumo…</span>
               </div>
             )}
-            {summaryMutation.isError && (
-              <p className="text-muted">Não foi possível gerar o resumo. Tenta de novo.</p>
+            {summaryState.status === 'error' && (
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-muted text-xs">{summaryState.message}</p>
+                <button
+                  onClick={fetchSummary}
+                  className="text-xs text-gold hover:text-gold2 flex-shrink-0"
+                >
+                  Tentar de novo
+                </button>
+              </div>
             )}
-            {summaryMutation.data && (
-              <p>{summaryMutation.data.summary}</p>
+            {summaryState.status === 'success' && (
+              <p>{summaryState.summary}</p>
             )}
           </div>
         )}
 
         {/* Acções */}
-        <div className="flex items-center gap-2 pt-0.5">
+        <div className="flex items-center gap-2">
           {/* Resumo IA */}
           <button
             onClick={handleSummary}
             className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors
               ${summaryOpen
                 ? 'text-green bg-green-bg border border-green-bdr'
-                : 'text-muted hover:text-green hover:bg-green-bg border border-transparent hover:border-green-bdr'
+                : summaryState.status === 'error'
+                  ? 'text-red-400 border border-transparent'
+                  : 'text-muted hover:text-green hover:bg-green-bg border border-transparent'
               }`}
           >
-            <Sparkles size={12} />
+            {summaryState.status === 'loading'
+              ? <Loader2 size={12} className="animate-spin" />
+              : <Sparkles size={12} />
+            }
             Resumo IA
           </button>
 
@@ -158,17 +231,22 @@ export default function ArticleCard({ article, isRead }: ArticleCardProps) {
             className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors
               ${followDone
                 ? 'text-gold bg-gold-dim border border-gold/30'
-                : 'text-muted hover:text-gold hover:bg-gold-dim border border-transparent'
+                : followMutation.isError
+                  ? 'text-red-400 border border-transparent'
+                  : 'text-muted hover:text-gold hover:bg-gold-dim border border-transparent'
               }`}
           >
             {followMutation.isPending
               ? <Loader2 size={12} className="animate-spin" />
               : <Plus size={12} />
             }
-            {followDone ? 'A seguir' : 'Seguir'}
+            {followMutation.isError
+              ? 'Erro — tenta de novo'
+              : followDone ? 'A seguir' : 'Seguir'
+            }
           </button>
 
-          {/* Abrir artigo — destaque maior */}
+          {/* Abrir artigo */}
           <a
             href={article.original_url}
             target="_blank"

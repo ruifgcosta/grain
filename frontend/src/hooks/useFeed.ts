@@ -9,10 +9,11 @@ import { getFeed } from '@/lib/api';
 import type { Article } from '@/types';
 
 export function useFeed() {
-  const { getToken, isSignedIn } = useAuth();
+  const { getToken, isSignedIn, isLoaded } = useAuth();
 
   const query = useInfiniteQuery({
     queryKey: ['feed', isSignedIn],
+    enabled: isLoaded,
     queryFn: async ({ pageParam }) => {
       const token = isSignedIn ? await getToken() : null;
       return getFeed(pageParam as number | undefined, token);
