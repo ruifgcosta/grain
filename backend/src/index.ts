@@ -18,6 +18,7 @@ import { runFetchFeeds } from './jobs/fetchFeeds';
 import { cosineSimilarity, isDuplicate, findMatches } from './services/dedup';
 import { translateBatch, generateEmbeddingsBatch, generateSummary, extractTopic } from './services/gemini';
 import { feedRouter } from './routes/feed';
+import { articlesRouter } from './routes/articles';
 
 // Variáveis injectadas pelos middlewares de autenticação
 type Variables = {
@@ -44,8 +45,9 @@ app.use('/api/*', cors({
   maxAge: 86400,
 }));
 
-// ─── Rotas do feed ───────────────────────────────────────────────────────────
+// ─── Rotas do feed e artigos ─────────────────────────────────────────────────
 app.route('/api/feed', feedRouter);
+app.route('/api/articles', articlesRouter);
 
 // ─── Rotas públicas ────────────────────────────────────────────────────────────
 
