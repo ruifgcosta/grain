@@ -54,6 +54,16 @@ export default function App() {
           formButtonPrimary:{ backgroundColor: '#c8a96e', color: '#0a0a0a' },
           footerActionLink: { color: '#c8a96e' },
           headerTitle:      { fontFamily: 'Syne, sans-serif', fontWeight: '800' },
+          // Social buttons (Google, etc.) — visíveis no tema escuro
+          socialButtonsBlockButton: {
+            backgroundColor: '#1a1a1a',
+            border: '1px solid #2e2e2e',
+            color: '#f0ece4',
+          },
+          socialButtonsBlockButtonText: { color: '#f0ece4' },
+          socialButtonsBlockButtonArrow: { color: '#888' },
+          dividerLine: { backgroundColor: '#2e2e2e' },
+          dividerText: { color: '#555' },
         },
       }}
     >

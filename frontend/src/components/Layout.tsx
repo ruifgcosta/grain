@@ -30,8 +30,9 @@ export default function Layout({ children }: LayoutProps) {
           {/* Logo */}
           <button
             onClick={() => navigate('/feed')}
-            className="font-display font-extrabold text-xl text-gold tracking-tight"
+            className="flex items-center gap-2 font-display font-extrabold text-xl text-gold tracking-tight"
           >
+            <img src="/favicon.svg" alt="grain" className="w-6 h-6" />
             grain
           </button>
 
