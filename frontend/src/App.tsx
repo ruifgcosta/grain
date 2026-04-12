@@ -59,8 +59,9 @@ export default function App() {
       <QueryClientProvider client={queryClient}>
         <BrowserRouter>
           <Routes>
-            {/* Landing page — apresentação pública */}
-            <Route path="/" element={<Landing />} />
+            {/* Landing page — apresentação pública (Passo 4.1) */}
+            <Route path="/" element={<Navigate to="/feed" replace />} />
+            <Route path="/landing" element={<Landing />} />
 
             {/* App — feed principal */}
             <Route path="/feed" element={<Feed />} />
