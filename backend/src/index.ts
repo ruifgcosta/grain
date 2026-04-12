@@ -14,6 +14,7 @@ import type { Env } from './types/index';
 import { requireAuth, optionalAuth } from './middleware/auth';
 import { adminOnly } from './middleware/adminOnly';
 import { fetchRSSFeed, parseArticles } from './services/rss';
+import { cosineSimilarity, isDuplicate, findMatches } from './services/dedup';
 import { translateBatch, generateEmbeddingsBatch, generateSummary, extractTopic } from './services/gemini';
 
 // Variáveis injectadas pelos middlewares de autenticação
@@ -126,6 +127,39 @@ app.get('/api/test/gemini', async (c) => {
       embedding_sample: embedding.slice(0, 5),
       summary,
       topic,
+    });
+  } catch (err) {
+    return c.json({ error: err instanceof Error ? err.message : String(err) }, 500);
+  }
+});
+
+/**
+ * GET /api/test/dedup
+ * Rota de teste para o Passo 2.3 — remover depois.
+ */
+app.get('/api/test/dedup', async (c) => {
+  const apiKey = c.env.GEMINI_API_KEY;
+  try {
+    // Gerar embeddings de 3 frases: 2 similares + 1 diferente
+    const { generateEmbeddingsBatch } = await import('./services/gemini');
+    const texts = [
+      'A União Europeia apresentou novas metas climáticas ambiciosas',
+      'Bruxelas anuncia objectivos de redução de emissões para 2040',
+      'O Benfica venceu o Sporting no clássico desta tarde',
+    ];
+    const [embA, embB, embC] = await generateEmbeddingsBatch(texts, apiKey);
+
+    const simAB = cosineSimilarity(embA, embB); // devem ser similares
+    const simAC = cosineSimilarity(embA, embC); // devem ser diferentes
+    const simBC = cosineSimilarity(embB, embC); // devem ser diferentes
+
+    return c.json({
+      'clima vs clima':   { similarity: +simAB.toFixed(4), duplicate_90: isDuplicate(embA, [embB], 0.90) },
+      'clima vs futebol': { similarity: +simAC.toFixed(4), duplicate_90: isDuplicate(embA, [embC], 0.90) },
+      'clima vs futebol (match_82)': findMatches(embA, [
+        { id: 'clima2', embedding: embB },
+        { id: 'futebol', embedding: embC },
+      ], 0.82),
     });
   } catch (err) {
     return c.json({ error: err instanceof Error ? err.message : String(err) }, 500);
