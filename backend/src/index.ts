@@ -11,41 +11,68 @@ import { cors } from 'hono/cors';
 import { logger } from 'hono/logger';
 import { prettyJSON } from 'hono/pretty-json';
 import type { Env } from './types/index';
+import { requireAuth, optionalAuth } from './middleware/auth';
+import { adminOnly } from './middleware/adminOnly';
 
-// Criar a aplicação Hono tipada com o nosso Env
-const app = new Hono<{ Bindings: Env }>();
+// Variáveis injectadas pelos middlewares de autenticação
+type Variables = {
+  userId?: string;
+  isAdmin?: boolean;
+};
+
+// Criar a aplicação Hono tipada com o nosso Env e Variables
+const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 
 // ─── Middlewares globais ───────────────────────────────────────────────────────
 
-// Logger de pedidos em desenvolvimento
 app.use('*', logger());
-
-// Pretty print de JSON em desenvolvimento
 app.use('*', prettyJSON());
 
 // CORS — permitir apenas o domínio do frontend
 app.use('/api/*', cors({
   origin: [
-    'http://localhost:5173',                // dev local Vite
-    'https://ruifgomesc.github.io',         // GitHub Pages (ajustar ao repositório)
+    'http://localhost:5173',           // dev local Vite
+    'https://ruifgomesc.github.io',    // GitHub Pages
   ],
   allowMethods: ['GET', 'POST', 'DELETE', 'PATCH', 'OPTIONS'],
   allowHeaders: ['Content-Type', 'Authorization'],
   maxAge: 86400,
 }));
 
-// ─── Rota de saúde ────────────────────────────────────────────────────────────
+// ─── Rotas públicas ────────────────────────────────────────────────────────────
 
 /**
  * GET /api/health
- * Verifica que o Worker está vivo e responde.
- * Usado para confirmar que o deploy funcionou.
+ * Verifica que o Worker está vivo. Sem autenticação.
  */
 app.get('/api/health', (c) => {
   return c.json({
     status: 'ok',
     service: 'grain-backend',
     timestamp: new Date().toISOString(),
+  });
+});
+
+/**
+ * GET /api/me
+ * Rota de teste de autenticação — devolve o userId e isAdmin do token.
+ * Usada no Passo 1.4 para confirmar que o Clerk está a funcionar.
+ */
+app.get('/api/me', requireAuth, (c) => {
+  return c.json({
+    userId: c.get('userId'),
+    isAdmin: c.get('isAdmin') ?? false,
+  });
+});
+
+/**
+ * GET /api/admin/test
+ * Rota de teste do middleware adminOnly.
+ */
+app.get('/api/admin/test', requireAuth, adminOnly, (c) => {
+  return c.json({
+    message: 'Acesso admin confirmado',
+    userId: c.get('userId'),
   });
 });
 
@@ -65,39 +92,23 @@ app.onError((err, c) => {
 // ─── Export do Worker ─────────────────────────────────────────────────────────
 
 export default {
-  /**
-   * Handler HTTP — processa todos os pedidos web.
-   */
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     return app.fetch(request, env, ctx);
   },
 
-  /**
-   * Handler de Cron Triggers — executa jobs agendados.
-   * Os crons são definidos em wrangler.toml.
-   */
   async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
     console.log('[grain] Cron disparado:', event.cron, 'às', new Date().toISOString());
 
     switch (event.cron) {
       case '*/30 * * * *':
-        // JOB 1 — Ir buscar feeds RSS e processar artigos novos
-        // Implementado no Passo 2.4
         console.log('[grain] JOB fetchFeeds — a implementar no Passo 2.4');
         break;
-
       case '0 * * * *':
-        // JOB 2 — Fazer correspondência de temas seguidos com artigos novos
-        // Implementado no Passo 2.9
         console.log('[grain] JOB matchFollows — a implementar no Passo 2.9');
         break;
-
       case '0 3 * * *':
-        // JOB 3 — Limpeza de artigos expirados
-        // Implementado no Passo 2.10
         console.log('[grain] JOB cleanup — a implementar no Passo 2.10');
         break;
-
       default:
         console.error('[grain] Cron desconhecido:', event.cron);
     }

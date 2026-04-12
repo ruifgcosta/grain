@@ -1,13 +1,14 @@
 /**
  * App.tsx — Raiz da aplicação grain.
  *
- * Configura os providers globais e define o router.
- * Estrutura de providers (de fora para dentro):
- *   QueryClientProvider → BrowserRouter → Routes
+ * Ordem dos providers (de fora para dentro):
+ *   ClerkProvider → QueryClientProvider → BrowserRouter → Routes
  *
- * O Clerk será adicionado no Passo 1.4.
+ * O ClerkProvider tem de estar na raiz para que o useAuth e
+ * o useUser funcionem em qualquer componente da árvore.
  */
 
+import { ClerkProvider } from '@clerk/react';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { queryClient } from '@/lib/queryClient';
@@ -19,30 +20,65 @@ import Follow from '@/pages/Follow';
 import Sources from '@/pages/Sources';
 import Admin from '@/pages/Admin';
 
+// Chave pública do Clerk — vem do .env.local (nunca hardcoded)
+const CLERK_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY as string;
+
+if (!CLERK_KEY) {
+  throw new Error('[grain] VITE_CLERK_PUBLISHABLE_KEY não está definida. Verifica o ficheiro .env.local');
+}
+
 export default function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
-        <Routes>
-          {/* Landing page — apresentação pública */}
-          <Route path="/" element={<Landing />} />
+    <ClerkProvider
+      publishableKey={CLERK_KEY}
+      /*
+       * Aparência minimal do Clerk — modal dark para não
+       * quebrar o dark theme do grain.
+       * A customização completa é feita no Clerk Dashboard
+       * (Passo 1.4 — configuração de redirects e branding).
+       */
+      appearance={{
+        variables: {
+          colorBackground:     '#111111',
+          colorInputBackground:'#161616',
+          colorText:           '#f0ece4',
+          colorTextSecondary:  '#555555',
+          colorPrimary:        '#c8a96e',
+          colorDanger:         '#e05555',
+          borderRadius:        '10px',
+          fontFamily:          'DM Sans, sans-serif',
+        },
+        elements: {
+          card:             { border: '0.5px solid #1e1e1e', boxShadow: 'none' },
+          formButtonPrimary:{ backgroundColor: '#c8a96e', color: '#0a0a0a' },
+          footerActionLink: { color: '#c8a96e' },
+          headerTitle:      { fontFamily: 'Syne, sans-serif', fontWeight: '800' },
+        },
+      }}
+    >
+      <QueryClientProvider client={queryClient}>
+        <BrowserRouter>
+          <Routes>
+            {/* Landing page — apresentação pública */}
+            <Route path="/" element={<Landing />} />
 
-          {/* App — feed principal */}
-          <Route path="/feed" element={<Feed />} />
+            {/* App — feed principal */}
+            <Route path="/feed" element={<Feed />} />
 
-          {/* App — temas seguidos */}
-          <Route path="/follow" element={<Follow />} />
+            {/* App — temas seguidos */}
+            <Route path="/follow" element={<Follow />} />
 
-          {/* App — gestão de fontes */}
-          <Route path="/sources" element={<Sources />} />
+            {/* App — gestão de fontes */}
+            <Route path="/sources" element={<Sources />} />
 
-          {/* App — painel admin (role admin no Clerk) */}
-          <Route path="/admin" element={<Admin />} />
+            {/* App — painel admin (role admin no Clerk) */}
+            <Route path="/admin" element={<Admin />} />
 
-          {/* Rota não encontrada — redirecção para home */}
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </BrowserRouter>
-    </QueryClientProvider>
+            {/* Rota não encontrada — redirecção para home */}
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </BrowserRouter>
+      </QueryClientProvider>
+    </ClerkProvider>
   );
 }
