@@ -48,7 +48,7 @@ export default function Feed() {
 
   return (
     <Layout>
-      <div className="max-w-3xl mx-auto px-4 py-6">
+      <div className="max-w-4xl mx-auto px-4 py-6">
         {/* ── Cabeçalho ── */}
         <div className="mb-6">
           <h1 className="font-display font-extrabold text-2xl text-text">Feed</h1>
@@ -64,14 +64,14 @@ export default function Feed() {
 
         {/* ── Skeletons ── */}
         {isLoading && (
-          <div className="flex flex-col gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {Array.from({ length: 8 }).map((_, i) => <SkeletonCard key={i} />)}
           </div>
         )}
 
         {/* ── Artigos ── */}
         {!isLoading && (
-          <div className="flex flex-col gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {articles.map(article => (
               <ArticleCard key={article.id} article={article} />
             ))}
