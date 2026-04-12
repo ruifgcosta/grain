@@ -14,8 +14,10 @@ import type { Env } from './types/index';
 import { requireAuth, optionalAuth } from './middleware/auth';
 import { adminOnly } from './middleware/adminOnly';
 import { fetchRSSFeed, parseArticles } from './services/rss';
+import { runFetchFeeds } from './jobs/fetchFeeds';
 import { cosineSimilarity, isDuplicate, findMatches } from './services/dedup';
 import { translateBatch, generateEmbeddingsBatch, generateSummary, extractTopic } from './services/gemini';
+import { feedRouter } from './routes/feed';
 
 // Variáveis injectadas pelos middlewares de autenticação
 type Variables = {
@@ -41,6 +43,9 @@ app.use('/api/*', cors({
   allowHeaders: ['Content-Type', 'Authorization'],
   maxAge: 86400,
 }));
+
+// ─── Rotas do feed ───────────────────────────────────────────────────────────
+app.route('/api/feed', feedRouter);
 
 // ─── Rotas públicas ────────────────────────────────────────────────────────────
 
@@ -198,7 +203,7 @@ export default {
 
     switch (event.cron) {
       case '*/30 * * * *':
-        console.log('[grain] JOB fetchFeeds — a implementar no Passo 2.4');
+        await runFetchFeeds(env);
         break;
       case '0 * * * *':
         console.log('[grain] JOB matchFollows — a implementar no Passo 2.9');
