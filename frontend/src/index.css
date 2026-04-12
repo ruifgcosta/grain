@@ -1,0 +1,186 @@
+/* ─── grain — CSS global ─────────────────────────────────────────────────────
+   Integra Tailwind v4, tokens grain e tokens shadcn/ui.
+   O grain é dark-only: os tokens shadcn são sempre os valores dark.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+/* ─── Google Fonts: Syne (display) + DM Sans (body) ────────────────────────── */
+/* Deve estar antes de qualquer outra regra @import */
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&display=swap');
+
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+/* ─── Variante dark — classe .dark nos descendentes ────────────────────────── */
+@custom-variant dark (&:is(.dark *));
+
+/* ─── Tokens de design grain (Tailwind v4 @theme) ───────────────────────────
+   Geram classes como bg-bg2, text-gold, border-border2, etc.
+   Nunca usar valores hardcoded — sempre estas variáveis ou as classes Tailwind.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+@theme inline {
+  /* ── Fundos ── */
+  --color-bg:         #0a0a0a;
+  --color-bg2:        #111111;
+  --color-bg3:        #161616;
+
+  /* ── Bordas ── */
+  --color-border:     #1e1e1e;
+  --color-border2:    #2a2a2a;
+
+  /* ── Texto ── */
+  --color-text:       #f0ece4;
+  --color-text2:      #f5f0e8;
+  --color-muted:      #555555;
+  --color-muted2:     #3a3a3a;
+
+  /* ── Dourado (acento de marca) ── */
+  --color-gold:       #c8a96e;
+  --color-gold2:      #e8c98e;
+  --color-gold-dim:   rgba(200, 169, 110, 0.12);
+
+  /* ── Azul (links / acções) ── */
+  --color-blue:       #5590ff;
+
+  /* ── Verde (exclusivo para conteúdo IA) ── */
+  --color-green:      #7ab832;
+  --color-green-bg:   #0e1a09;
+  --color-green-bdr:  #2a4a18;
+
+  /* ── Tipografia ── */
+  --font-display:     'Syne', sans-serif;
+  --font-body:        'DM Sans', sans-serif;
+  /* Sobrescrever o default Geist do shadcn */
+  --font-sans:        'DM Sans', sans-serif;
+  --font-heading:     'Syne', sans-serif;
+
+  /* ── Border radius ── */
+  --radius-app:       44px;
+  --radius-card:      14px;
+  --radius-btn:       7px;
+  --radius-pill:      100px;
+  --radius-mark-sm:   6px;
+  --radius-mark-lg:   16px;
+  --radius-bento:     16px;
+  --radius-detail:    10px;
+
+  /* ── Tokens shadcn mapeados para grain (dark always) ──
+     Permite que os componentes shadcn usem as cores grain. ── */
+  --color-background:          #0a0a0a;
+  --color-foreground:          #f0ece4;
+  --color-card:                #111111;
+  --color-card-foreground:     #f0ece4;
+  --color-popover:             #161616;
+  --color-popover-foreground:  #f0ece4;
+  --color-primary:             #c8a96e;
+  --color-primary-foreground:  #0a0a0a;
+  --color-secondary:           #1e1e1e;
+  --color-secondary-foreground:#f0ece4;
+  --color-muted-foreground:    #555555;
+  --color-accent:              #1e1e1e;
+  --color-accent-foreground:   #f0ece4;
+  --color-destructive:         #e05555;
+  --color-input:               #1e1e1e;
+  --color-ring:                #c8a96e;
+  --radius:                    0.5rem;
+}
+
+/* ─── Variáveis CSS para compatibilidade com shadcn ────────────────────────── */
+:root {
+  --background:              #0a0a0a;
+  --foreground:              #f0ece4;
+  --card:                    #111111;
+  --card-foreground:         #f0ece4;
+  --popover:                 #161616;
+  --popover-foreground:      #f0ece4;
+  --primary:                 #c8a96e;
+  --primary-foreground:      #0a0a0a;
+  --secondary:               #1e1e1e;
+  --secondary-foreground:    #f0ece4;
+  --muted:                   #1e1e1e;
+  --muted-foreground:        #555555;
+  --accent:                  #1e1e1e;
+  --accent-foreground:       #f0ece4;
+  --destructive:             #e05555;
+  --border:                  #1e1e1e;
+  --input:                   #1e1e1e;
+  --ring:                    #c8a96e;
+  --radius:                  0.5rem;
+}
+
+/* ─── Reset e base ──────────────────────────────────────────────────────────── */
+
+@layer base {
+  *, *::before, *::after {
+    box-sizing: border-box;
+    border-color: var(--border);
+  }
+
+  html {
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--color-bg);
+    color: var(--color-text);
+    font-family: var(--font-body);
+    font-weight: 400;
+    font-size: 14px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  #root {
+    min-height: 100svh;
+  }
+
+  /* Scrollbar personalizada */
+  ::-webkit-scrollbar        { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track  { background: var(--color-bg); }
+  ::-webkit-scrollbar-thumb  { background: var(--color-border2); border-radius: 2px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--color-muted2); }
+
+  /* Selecção de texto */
+  ::selection { background: var(--color-gold-dim); color: var(--color-text); }
+
+  /* Links sem decoração por defeito */
+  a { color: inherit; text-decoration: none; }
+
+  /* Imagens responsivas */
+  img { max-width: 100%; display: block; }
+}
+
+/* ─── Animações personalizadas grain ────────────────────────────────────────── */
+
+/* Skeleton loading */
+@keyframes grain-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.4; }
+}
+.animate-grain-pulse {
+  animation: grain-pulse 1.5s ease-in-out infinite;
+}
+
+/* Eyebrow dot na landing */
+@keyframes grain-dot-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.3; }
+}
+.animate-dot-pulse {
+  animation: grain-dot-pulse 2s ease-in-out infinite;
+}
+
+/* Marquee */
+@keyframes grain-marquee {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+.animate-marquee {
+  animation: grain-marquee 30s linear infinite;
+}
+.animate-marquee:hover {
+  animation-play-state: paused;
+}
