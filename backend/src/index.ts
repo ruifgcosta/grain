@@ -39,7 +39,7 @@ app.use('*', prettyJSON());
 app.use('/api/*', cors({
   origin: [
     'http://localhost:5173',           // dev local Vite
-    'https://ruifgomesc.github.io',    // GitHub Pages
+    'https://ruifgcosta.github.io',    // GitHub Pages
   ],
   allowMethods: ['GET', 'POST', 'DELETE', 'PATCH', 'OPTIONS'],
   allowHeaders: ['Content-Type', 'Authorization'],

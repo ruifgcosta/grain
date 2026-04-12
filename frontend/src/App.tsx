@@ -31,6 +31,7 @@ export default function App() {
   return (
     <ClerkProvider
       publishableKey={CLERK_KEY}
+      afterSignOutUrl={`${import.meta.env.BASE_URL}`}
       /*
        * Aparência minimal do Clerk — modal dark para não
        * quebrar o dark theme do grain.
@@ -57,7 +58,7 @@ export default function App() {
       }}
     >
       <QueryClientProvider client={queryClient}>
-        <BrowserRouter>
+        <BrowserRouter basename={import.meta.env.BASE_URL}>
           <Routes>
             {/* Landing page — apresentação pública (Passo 4.1) */}
             <Route path="/" element={<Navigate to="/feed" replace />} />

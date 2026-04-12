@@ -11,7 +11,9 @@ import type {
   FollowArticle,
 } from '@/types';
 
-const API_BASE = '/api';
+// Em dev: proxy Vite reencaminha /api → localhost:8787
+// Em prod: VITE_API_BASE_URL = https://grain-backend.<account>.workers.dev
+const API_BASE = (import.meta.env.VITE_API_BASE_URL ?? '') + '/api';
 
 async function apiFetch<T>(
   path: string,

@@ -86,7 +86,6 @@ export default function ArticleCard({ article, isRead }: ArticleCardProps) {
   const desc  = article.translated_desc  ?? article.original_desc;
   const color = article.source_color ?? '#888';
   const showImage = article.image_url && !imgError;
-  const showPlaceholder = !showImage;
 
   function handleSummary() {
     if (!summaryOpen && summaryState.status === 'idle') {
