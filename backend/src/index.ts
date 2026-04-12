@@ -15,6 +15,7 @@ import { requireAuth, optionalAuth } from './middleware/auth';
 import { adminOnly } from './middleware/adminOnly';
 import { fetchRSSFeed, parseArticles } from './services/rss';
 import { runFetchFeeds } from './jobs/fetchFeeds';
+import { runMatchFollows } from './jobs/matchFollows';
 import { cosineSimilarity, isDuplicate, findMatches } from './services/dedup';
 import { translateBatch, generateEmbeddingsBatch, generateSummary, extractTopic } from './services/gemini';
 import { feedRouter } from './routes/feed';
@@ -212,7 +213,7 @@ export default {
         await runFetchFeeds(env);
         break;
       case '0 * * * *':
-        console.log('[grain] JOB matchFollows — a implementar no Passo 2.9');
+        await runMatchFollows(env);
         break;
       case '0 3 * * *':
         console.log('[grain] JOB cleanup — a implementar no Passo 2.10');
