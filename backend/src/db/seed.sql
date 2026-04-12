@@ -25,12 +25,12 @@ VALUES
   ),
 
   (
-    'reuters',
-    'Reuters',
-    'https://feeds.reuters.com/reuters/topNews',
-    'https://www.reuters.com',
+    'washpost',
+    'Washington Post',
+    'https://feeds.washingtonpost.com/rss/world',
+    'https://www.washingtonpost.com',
     NULL,
-    '#ff7b00',        -- Laranja Reuters
+    '#231f20',        -- Preto WaPo
     'en',
     1, 1,
     unixepoch()
@@ -99,36 +99,48 @@ VALUES
   ),
 
   (
-    'verge',
-    'The Verge',
-    'https://www.theverge.com/rss/index.xml',
-    'https://www.theverge.com',
+    'wired',
+    'Wired',
+    'https://www.wired.com/feed/rss',
+    'https://www.wired.com',
     NULL,
-    '#fa4522',        -- Vermelho/laranja The Verge
+    '#000000',        -- Preto Wired
     'en',
     0, 1,
     unixepoch()
   ),
 
   (
-    'ap',
-    'Associated Press',
-    'https://rsshub.app/apnews/topics/apf-topnews',
-    'https://apnews.com',
+    'aljazeera',
+    'Al Jazeera',
+    'https://www.aljazeera.com/xml/rss/all.xml',
+    'https://www.aljazeera.com',
     NULL,
-    '#cc0000',        -- Vermelho AP
+    '#c8a96e',        -- Dourado Al Jazeera
     'en',
     0, 1,
     unixepoch()
   ),
 
   (
-    'sciam',
-    'Scientific American',
-    'http://rss.sciam.com/ScientificAmerican-Global',
-    'https://www.scientificamerican.com',
+    'npr',
+    'NPR News',
+    'https://feeds.npr.org/1001/rss.xml',
+    'https://www.npr.org',
     NULL,
-    '#0068b4',        -- Azul Scientific American
+    '#4a90d9',        -- Azul NPR
+    'en',
+    0, 1,
+    unixepoch()
+  ),
+
+  (
+    'dw',
+    'DW News',
+    'https://rss.dw.com/rdf/rss-en-all',
+    'https://www.dw.com/en',
+    NULL,
+    '#c41e3a',        -- Vermelho DW
     'en',
     0, 1,
     unixepoch()

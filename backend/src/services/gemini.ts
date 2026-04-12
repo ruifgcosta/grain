@@ -37,11 +37,41 @@ export interface TranslatedItem {
   translated_desc: string | null;
 }
 
+// ─── Rate limiter ─────────────────────────────────────────────────────────────
+
+// Rastreamento de pedidos para auto-throttling (15 RPM free tier).
+// Workers são single-threaded — este estado é partilhado dentro do mesmo isolate.
+const _reqTimestamps: number[] = [];
+const RATE_WINDOW_MS = 60_000;
+const MAX_REQ_PER_MIN = 13; // conservador: 13 de 15 para ter margem
+
+async function throttleGemini(): Promise<void> {
+  const now = Date.now();
+  // Descartar timestamps fora da janela de 1 minuto
+  while (_reqTimestamps.length > 0 && now - _reqTimestamps[0] >= RATE_WINDOW_MS) {
+    _reqTimestamps.shift();
+  }
+
+  if (_reqTimestamps.length >= MAX_REQ_PER_MIN) {
+    // Aguardar até o timestamp mais antigo sair da janela
+    const waitMs = RATE_WINDOW_MS - (now - _reqTimestamps[0]) + 500;
+    console.log(`[grain/gemini] Throttle — ${_reqTimestamps.length} pedidos/min, a aguardar ${waitMs}ms`);
+    await new Promise(r => setTimeout(r, waitMs));
+    // Limpar timestamps expirados após a espera
+    const after = Date.now();
+    while (_reqTimestamps.length > 0 && after - _reqTimestamps[0] >= RATE_WINDOW_MS) {
+      _reqTimestamps.shift();
+    }
+  }
+
+  _reqTimestamps.push(Date.now());
+}
+
 // ─── Utilitário de fetch com retry ────────────────────────────────────────────
 
 /**
- * Faz um pedido à Gemini API com retry automático em caso de rate limit (429).
- * Tenta no máximo 3 vezes com backoff exponencial.
+ * Faz um pedido à Gemini API com throttling automático e retry em caso de 429.
+ * O throttler limita a 13 pedidos/minuto para respeitar o free tier (15 RPM).
  *
  * @param url - URL completo do endpoint Gemini
  * @param body - Corpo do pedido JSON
@@ -52,6 +82,8 @@ async function geminiPost(
   body: unknown,
   apiKey: string
 ): Promise<unknown> {
+  await throttleGemini();
+
   const fullUrl = `${url}?key=${apiKey}`;
 
   for (let attempt = 0; attempt < 3; attempt++) {
@@ -61,9 +93,9 @@ async function geminiPost(
       body: JSON.stringify(body),
     });
 
-    // Rate limit — esperar e tentar de novo
+    // Rate limit residual — esperar e tentar de novo
     if (response.status === 429) {
-      const waitMs = (attempt + 1) * 2000; // 2s, 4s, 6s
+      const waitMs = (attempt + 1) * 15000; // 15s, 30s, 45s
       console.warn(`[grain/gemini] Rate limit (429) — a aguardar ${waitMs}ms`);
       await new Promise(r => setTimeout(r, waitMs));
       continue;
@@ -124,11 +156,9 @@ ${articlesJson}`;
     {
       contents: [{ parts: [{ text: prompt }] }],
       generationConfig: {
-        temperature: 0.1,       // Baixa criatividade — queremos fidelidade
+        temperature: 0.1,
         responseMimeType: 'application/json',
-        maxOutputTokens: 2048,
-        // Desactivar thinking — tarefa simples, não precisa de raciocínio
-        thinkingConfig: { thinkingBudget: 0 },
+        maxOutputTokens: 8192,
       },
     },
     apiKey
@@ -227,8 +257,7 @@ ${text}`;
       contents: [{ parts: [{ text: prompt }] }],
       generationConfig: {
         temperature: 0.2,
-        maxOutputTokens: 600,
-        thinkingConfig: { thinkingBudget: 0 },
+        maxOutputTokens: 2048,
       },
     },
     apiKey
@@ -267,8 +296,7 @@ ${text}`;
       contents: [{ parts: [{ text: prompt }] }],
       generationConfig: {
         temperature: 0.1,
-        maxOutputTokens: 50,
-        thinkingConfig: { thinkingBudget: 0 },
+        maxOutputTokens: 512,
       },
     },
     apiKey

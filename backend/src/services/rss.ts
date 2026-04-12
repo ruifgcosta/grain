@@ -157,7 +157,10 @@ export async function fetchRSSFeed(url: string): Promise<string> {
  * Extrai artigos de um objecto RSS 2.0 já parseado pelo fast-xml-parser.
  */
 function parseRSS(parsed: Record<string, unknown>, sourceId: string): RawArticle[] {
-  const channel = (parsed['rss'] as Record<string, unknown>)?.['channel'] as Record<string, unknown>;
+  // RSS 2.0: items inside rss > channel; RSS 1.0/RDF: items at rdf:RDF root
+  const rss2Channel = (parsed['rss'] as Record<string, unknown>)?.['channel'] as Record<string, unknown> | undefined;
+  const rdfRoot = parsed['rdf:RDF'] as Record<string, unknown> | undefined;
+  const channel = rss2Channel ?? rdfRoot;
   if (!channel) return [];
 
   // items pode ser array ou objecto único
