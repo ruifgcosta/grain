@@ -1,0 +1,45 @@
+# ─── Configuração principal do Cloudflare Worker ─────────────────────────────
+# Documentação: https://developers.cloudflare.com/workers/wrangler/configuration/
+
+name            = "grain-backend"
+main            = "src/index.ts"
+compatibility_date = "2024-11-01"
+compatibility_flags = ["nodejs_compat"]
+
+# ─── Variáveis de ambiente ────────────────────────────────────────────────────
+# ATENÇÃO: chaves de API nunca aqui — usar .dev.vars (local) ou Secrets (prod)
+[vars]
+GEMINI_API_KEY           = ""
+CLERK_SECRET_KEY         = ""
+CLERK_PUBLISHABLE_KEY    = ""
+MAX_SOURCES_PER_USER     = "10"
+MAX_FOLLOWS_PER_USER     = "20"
+ARTICLE_TTL_DAYS         = "7"
+FOLLOW_ARTICLE_TTL_DAYS  = "90"
+SIMILARITY_THRESHOLD     = "0.82"
+DEDUP_THRESHOLD          = "0.90"
+SUMMARY_MAX_WORDS        = "250"
+ADMIN_USER_ID            = ""
+
+# ─── Base de dados D1 ─────────────────────────────────────────────────────────
+[[d1_databases]]
+binding       = "DB"
+database_name = "grain"
+database_id   = "b6852e3c-637a-4604-b3f5-362de6eeae15"
+
+# ─── Cache KV ─────────────────────────────────────────────────────────────────
+[[kv_namespaces]]
+binding = "CACHE"
+id      = "6cc1cf9b03ce45af99fb0ae72d1b17c7"
+
+# ─── Cron Triggers ────────────────────────────────────────────────────────────
+[triggers]
+# JOB 1 — fetchFeeds: cada 30 minutos
+# JOB 2 — matchFollows: cada hora (no início)
+# JOB 3 — cleanup: todos os dias às 3h da manhã
+crons = ["*/30 * * * *", "0 * * * *", "0 3 * * *"]
+
+# ─── Desenvolvimento local ────────────────────────────────────────────────────
+[dev]
+port = 8787
+local_protocol = "http"

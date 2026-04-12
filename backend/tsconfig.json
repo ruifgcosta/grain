@@ -1,0 +1,37 @@
+{
+  "compilerOptions": {
+    /* Target: Workers correm num ambiente V8 moderno */
+    "target": "ES2022",
+    "module": "ES2022",
+    "moduleResolution": "bundler",
+    "lib": ["ES2022"],
+
+    /* Tipos do ambiente Cloudflare Workers */
+    "types": ["@cloudflare/workers-types"],
+
+    /* Strict mode — sem any implícito */
+    "strict": true,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+
+    /* Interoperabilidade de módulos */
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "isolatedModules": true,
+
+    /* Paths */
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"]
+    },
+
+    /* Output — o Wrangler trata do bundling, não o tsc */
+    "noEmit": true,
+
+    /* Qualidade */
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist"]
+}
