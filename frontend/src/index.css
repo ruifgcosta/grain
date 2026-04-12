@@ -32,8 +32,8 @@
   /* ── Texto ── */
   --color-text:       #f0ece4;
   --color-text2:      #f5f0e8;
-  --color-muted:      #555555;
-  --color-muted2:     #3a3a3a;
+  --color-muted:      #888888;
+  --color-muted2:     #555555;
 
   /* ── Dourado (acento de marca) ── */
   --color-gold:       #c8a96e;
@@ -77,7 +77,7 @@
   --color-primary-foreground:  #0a0a0a;
   --color-secondary:           #1e1e1e;
   --color-secondary-foreground:#f0ece4;
-  --color-muted-foreground:    #555555;
+  --color-muted-foreground:    #888888;
   --color-accent:              #1e1e1e;
   --color-accent-foreground:   #f0ece4;
   --color-destructive:         #e05555;

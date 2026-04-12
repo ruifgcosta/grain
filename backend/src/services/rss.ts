@@ -79,14 +79,29 @@ function parseDate(dateStr: unknown): number {
   return isNaN(ts) ? Math.floor(Date.now() / 1000) : ts;
 }
 
+/** Descodifica entidades HTML comuns em texto limpo */
+function decodeEntities(str: string): string {
+  return str
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&apos;/g, "'")
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(parseInt(code, 10)));
+}
+
 /**
- * Remove tags HTML e normaliza espaços.
+ * Remove tags HTML, descodifica entidades e normaliza espaços.
  * Truncado a 500 chars para poupar espaço na base de dados.
  */
 function cleanDesc(raw: unknown): string | null {
   const str = toStr(raw);
   if (!str) return null;
-  return str.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 500) || null;
+  // Primeiro descodificar entidades, depois remover tags HTML
+  const decoded = decodeEntities(str);
+  return decoded.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 500) || null;
 }
 
 /**
