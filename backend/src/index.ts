@@ -20,6 +20,7 @@ import { translateBatch, generateEmbeddingsBatch, generateSummary, extractTopic 
 import { feedRouter } from './routes/feed';
 import { articlesRouter } from './routes/articles';
 import { sourcesRouter } from './routes/sources';
+import { followsRouter } from './routes/follows';
 
 // Variáveis injectadas pelos middlewares de autenticação
 type Variables = {
@@ -50,6 +51,7 @@ app.use('/api/*', cors({
 app.route('/api/feed', feedRouter);
 app.route('/api/articles', articlesRouter);
 app.route('/api/sources', sourcesRouter);
+app.route('/api/follows', followsRouter);
 
 // ─── Rotas públicas ────────────────────────────────────────────────────────────
 
