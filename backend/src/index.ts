@@ -16,6 +16,7 @@ import { adminOnly } from './middleware/adminOnly';
 import { fetchRSSFeed, parseArticles } from './services/rss';
 import { runFetchFeeds } from './jobs/fetchFeeds';
 import { runMatchFollows } from './jobs/matchFollows';
+import { runCleanup } from './jobs/cleanup';
 import { cosineSimilarity, isDuplicate, findMatches } from './services/dedup';
 import { translateBatch, generateEmbeddingsBatch, generateSummary, extractTopic } from './services/gemini';
 import { feedRouter } from './routes/feed';
@@ -216,7 +217,7 @@ export default {
         await runMatchFollows(env);
         break;
       case '0 3 * * *':
-        console.log('[grain] JOB cleanup — a implementar no Passo 2.10');
+        await runCleanup(env);
         break;
       default:
         console.error('[grain] Cron desconhecido:', event.cron);
