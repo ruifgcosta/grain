@@ -23,6 +23,7 @@
   },
   "dependencies": {
     "@clerk/backend": "^3.2.8",
+    "fast-xml-parser": "^5.5.11",
     "hono": "^4.12.12"
   }
 }

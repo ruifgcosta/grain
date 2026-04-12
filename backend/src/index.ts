@@ -13,6 +13,7 @@ import { prettyJSON } from 'hono/pretty-json';
 import type { Env } from './types/index';
 import { requireAuth, optionalAuth } from './middleware/auth';
 import { adminOnly } from './middleware/adminOnly';
+import { fetchRSSFeed, parseArticles } from './services/rss';
 
 // Variáveis injectadas pelos middlewares de autenticação
 type Variables = {
@@ -69,6 +70,23 @@ app.get('/api/me', requireAuth, (c) => {
  * GET /api/admin/test
  * Rota de teste do middleware adminOnly.
  */
+/**
+ * GET /api/test/rss?url=...
+ * Rota de teste temporária para o Passo 2.1 — remover depois.
+ */
+app.get('/api/test/rss', async (c) => {
+  const url = c.req.query('url');
+  const sourceId = c.req.query('source') ?? 'test';
+  if (!url) return c.json({ error: 'Parâmetro url em falta' }, 400);
+  try {
+    const xml = await fetchRSSFeed(url);
+    const articles = parseArticles(xml, sourceId);
+    return c.json({ total: articles.length, articles: articles.slice(0, 3) });
+  } catch (err) {
+    return c.json({ error: err instanceof Error ? err.message : String(err) }, 500);
+  }
+});
+
 app.get('/api/admin/test', requireAuth, adminOnly, (c) => {
   return c.json({
     message: 'Acesso admin confirmado',
