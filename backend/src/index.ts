@@ -11,18 +11,15 @@ import { cors } from 'hono/cors';
 import { logger } from 'hono/logger';
 import { prettyJSON } from 'hono/pretty-json';
 import type { Env } from './types/index';
-import { requireAuth, optionalAuth } from './middleware/auth';
-import { adminOnly } from './middleware/adminOnly';
-import { fetchRSSFeed, parseArticles } from './services/rss';
+import { requireAuth } from './middleware/auth';
 import { runFetchFeeds } from './jobs/fetchFeeds';
 import { runMatchFollows } from './jobs/matchFollows';
 import { runCleanup } from './jobs/cleanup';
-import { cosineSimilarity, isDuplicate, findMatches } from './services/dedup';
-import { translateBatch, generateEmbeddingsBatch, generateSummary, extractTopic } from './services/gemini';
 import { feedRouter } from './routes/feed';
 import { articlesRouter } from './routes/articles';
 import { sourcesRouter } from './routes/sources';
 import { followsRouter } from './routes/follows';
+import { adminRouter } from './routes/admin';
 
 // Variáveis injectadas pelos middlewares de autenticação
 type Variables = {
@@ -49,13 +46,13 @@ app.use('/api/*', cors({
   maxAge: 86400,
 }));
 
-// ─── Rotas principais ─────────────────────────────────────────────────────────
+// ─── Rotas ────────────────────────────────────────────────────────────────────
+
 app.route('/api/feed', feedRouter);
 app.route('/api/articles', articlesRouter);
 app.route('/api/sources', sourcesRouter);
 app.route('/api/follows', followsRouter);
-
-// ─── Rotas públicas ────────────────────────────────────────────────────────────
+app.route('/api/admin', adminRouter);
 
 /**
  * GET /api/health
@@ -71,118 +68,12 @@ app.get('/api/health', (c) => {
 
 /**
  * GET /api/me
- * Rota de teste de autenticação — devolve o userId e isAdmin do token.
- * Usada no Passo 1.4 para confirmar que o Clerk está a funcionar.
+ * Devolve o userId e isAdmin do token Clerk.
  */
 app.get('/api/me', requireAuth, (c) => {
   return c.json({
     userId: c.get('userId'),
     isAdmin: c.get('isAdmin') ?? false,
-  });
-});
-
-/**
- * GET /api/admin/test
- * Rota de teste do middleware adminOnly.
- */
-/**
- * GET /api/test/rss?url=...
- * Rota de teste temporária para o Passo 2.1 — remover depois.
- */
-app.get('/api/test/rss', async (c) => {
-  const url = c.req.query('url');
-  const sourceId = c.req.query('source') ?? 'test';
-  if (!url) return c.json({ error: 'Parâmetro url em falta' }, 400);
-  try {
-    const xml = await fetchRSSFeed(url);
-    const articles = parseArticles(xml, sourceId);
-    return c.json({ total: articles.length, articles: articles.slice(0, 3) });
-  } catch (err) {
-    return c.json({ error: err instanceof Error ? err.message : String(err) }, 500);
-  }
-});
-
-/**
- * GET /api/test/gemini
- * Rota de teste temporária para o Passo 2.2 — remover depois.
- * Testa tradução, embeddings, resumo e extracção de tema.
- */
-app.get('/api/test/gemini', async (c) => {
-  const apiKey = c.env.GEMINI_API_KEY;
-  if (!apiKey) return c.json({ error: 'GEMINI_API_KEY não configurada' }, 500);
-
-  try {
-    // Artigo de teste (BBC em inglês)
-    const testTitle = 'EU announces new climate targets for 2035';
-    const testDesc = 'The European Union has set ambitious new climate goals, aiming to reduce emissions by 90% compared to 1990 levels by 2040, as part of its Green Deal strategy.';
-
-    // 1. Tradução
-    const [translated] = await translateBatch(
-      [{ id: 'test1', title: testTitle, desc: testDesc }],
-      apiKey
-    );
-
-    // 2. Embedding do título traduzido
-    const [embedding] = await generateEmbeddingsBatch([translated.translated_title], apiKey);
-
-    // 3. Resumo
-    const summary = await generateSummary(`${testTitle}\n${testDesc}`, apiKey);
-
-    // 4. Tema
-    const topic = await extractTopic(`${testTitle}\n${testDesc}`, apiKey);
-
-    return c.json({
-      translation: {
-        title: translated.translated_title,
-        desc: translated.translated_desc,
-      },
-      embedding_dims: embedding.length,
-      embedding_sample: embedding.slice(0, 5),
-      summary,
-      topic,
-    });
-  } catch (err) {
-    return c.json({ error: err instanceof Error ? err.message : String(err) }, 500);
-  }
-});
-
-/**
- * GET /api/test/dedup
- * Rota de teste para o Passo 2.3 — remover depois.
- */
-app.get('/api/test/dedup', async (c) => {
-  const apiKey = c.env.GEMINI_API_KEY;
-  try {
-    // Gerar embeddings de 3 frases: 2 similares + 1 diferente
-    const { generateEmbeddingsBatch } = await import('./services/gemini');
-    const texts = [
-      'A União Europeia apresentou novas metas climáticas ambiciosas',
-      'Bruxelas anuncia objectivos de redução de emissões para 2040',
-      'O Benfica venceu o Sporting no clássico desta tarde',
-    ];
-    const [embA, embB, embC] = await generateEmbeddingsBatch(texts, apiKey);
-
-    const simAB = cosineSimilarity(embA, embB); // devem ser similares
-    const simAC = cosineSimilarity(embA, embC); // devem ser diferentes
-    const simBC = cosineSimilarity(embB, embC); // devem ser diferentes
-
-    return c.json({
-      'clima vs clima':   { similarity: +simAB.toFixed(4), duplicate_90: isDuplicate(embA, [embB], 0.90) },
-      'clima vs futebol': { similarity: +simAC.toFixed(4), duplicate_90: isDuplicate(embA, [embC], 0.90) },
-      'clima vs futebol (match_82)': findMatches(embA, [
-        { id: 'clima2', embedding: embB },
-        { id: 'futebol', embedding: embC },
-      ], 0.82),
-    });
-  } catch (err) {
-    return c.json({ error: err instanceof Error ? err.message : String(err) }, 500);
-  }
-});
-
-app.get('/api/admin/test', requireAuth, adminOnly, (c) => {
-  return c.json({
-    message: 'Acesso admin confirmado',
-    userId: c.get('userId'),
   });
 });
 
