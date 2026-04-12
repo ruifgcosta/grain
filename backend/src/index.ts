@@ -19,6 +19,7 @@ import { cosineSimilarity, isDuplicate, findMatches } from './services/dedup';
 import { translateBatch, generateEmbeddingsBatch, generateSummary, extractTopic } from './services/gemini';
 import { feedRouter } from './routes/feed';
 import { articlesRouter } from './routes/articles';
+import { sourcesRouter } from './routes/sources';
 
 // Variáveis injectadas pelos middlewares de autenticação
 type Variables = {
@@ -45,9 +46,10 @@ app.use('/api/*', cors({
   maxAge: 86400,
 }));
 
-// ─── Rotas do feed e artigos ─────────────────────────────────────────────────
+// ─── Rotas principais ─────────────────────────────────────────────────────────
 app.route('/api/feed', feedRouter);
 app.route('/api/articles', articlesRouter);
+app.route('/api/sources', sourcesRouter);
 
 // ─── Rotas públicas ────────────────────────────────────────────────────────────
 
