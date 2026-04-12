@@ -1,249 +1,83 @@
 /**
- * Landing page do grain — versão 2.
- * Logo, demo animado (substituição de vídeo), "Como funciona",
- * inverted border-radius, CTA → /feed sem forçar login.
+ * Landing page v3 — redesign fiel ao protótipo.
+ * Editorial, dark, inglês. Sem algoritmo, sem ruído.
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth, useClerk } from '@clerk/react';
-import { motion, AnimatePresence, useInView } from 'framer-motion';
-import { gsap } from 'gsap';
-import { Sparkles, BookmarkCheck, Rss, ArrowRight, Zap, Shield, Globe, Plus, ExternalLink } from 'lucide-react';
+import { motion, useInView, AnimatePresence } from 'framer-motion';
+import { Play, Plus, ChevronRight } from 'lucide-react';
 
-// ─── Dados estáticos ───────────────────────────────────────────────────────────
+// ─── Mock data ────────────────────────────────────────────────────────────────
 
-const SOURCES = [
-  { name: 'BBC News',         color: '#b80000' },
-  { name: 'The Guardian',     color: '#005689' },
-  { name: 'Público',          color: '#1a1aff' },
-  { name: 'Observador',       color: '#e63329' },
-  { name: 'Washington Post',  color: '#231f20' },
-  { name: 'RTP Notícias',     color: '#009a44' },
-  { name: 'Al Jazeera',       color: '#c8a96e' },
-  { name: 'Ars Technica',     color: '#ff4e00' },
-  { name: 'DW News',          color: '#c41e3a' },
-  { name: 'NPR News',         color: '#4a90d9' },
-  { name: 'Wired',            color: '#888' },
+const TICKER_ARTICLES = [
+  { source: 'BBC News',     color: '#b80000', tag: '',         title: 'Ukraine forces advance near Kharkiv amid heavy resistance' },
+  { source: 'Reuters',      color: '#ff8000', tag: 'Economy',  title: 'Fed holds rates steady, signals no rush to cut' },
+  { source: 'Público',      color: '#1a1aff', tag: 'Portugal', title: 'Portugal regista crescimento no primeiro trimestre' },
+  { source: 'The Guardian', color: '#005689', tag: 'Climate',  title: 'EU leaders reach historic climate deal at Brussels summit' },
+  { source: 'Al Jazeera',   color: '#c8a96e', tag: 'World',   title: 'Ceasefire negotiations collapse amid renewed strikes' },
 ];
 
-const FEATURES = [
-  { icon: Rss,           title: 'Fontes curadas',  desc: 'Jornalismo de qualidade, seleccionado à mão. Sem clickbait, sem conteúdo viral.' },
-  { icon: Sparkles,      title: 'Resumos IA',       desc: 'Gerados em PT Europeu pelo Gemini. On-demand — só quando queres.' },
-  { icon: BookmarkCheck, title: 'Seguir temas',     desc: 'Define temas em linguagem natural. O grain encontra artigos por semântica.' },
-  { icon: Shield,        title: 'Sem algoritmo',    desc: 'Cronológico. Sem feed personalizado, sem bolha de filtro.' },
-  { icon: Globe,         title: 'PT + EN',          desc: 'Fontes em inglês traduzidas automaticamente para Português Europeu.' },
-  { icon: Zap,           title: 'Rápido e limpo',   desc: 'PWA sem rastreadores, sem anúncios, sem cookies de terceiros.' },
+const FAQ_ITEMS = [
+  {
+    q: 'Do I need an account to use grain?',
+    a: 'No. The feed is public — you can read articles without signing up. An account is only needed if you want to follow topics or manage your sources.',
+  },
+  {
+    q: 'Where do the articles come from? Are they reliable?',
+    a: 'Grain aggregates RSS feeds from 10+ hand-picked outlets: BBC News, The Guardian, Público, Observador, Washington Post, RTP, Al Jazeera, NPR, Wired, DW News and Ars Technica. No user-generated content.',
+  },
+  {
+    q: 'How does the AI summary work?',
+    a: 'When you click "AI Summary", grain sends the article URL to Gemini 2.5 Flash, which generates a concise summary in European Portuguese. Summaries are cached and shared — if someone already requested it, you get it instantly.',
+  },
+  {
+    q: 'What is topic follow and how does it work?',
+    a: 'You describe a topic in plain language (e.g. "renewable energy in Europe"). Grain converts it to a semantic embedding and matches it against new articles as they arrive — no keyword matching, no manual setup.',
+  },
+  {
+    q: 'What languages are articles delivered in?',
+    a: 'Portuguese and English sources are both included. English articles are automatically translated to European Portuguese using Gemini.',
+  },
+  {
+    q: 'Is it free? Will it stay free?',
+    a: 'Yes. Grain has no ads, no subscriptions, no data selling. It runs on Cloudflare Workers and the AI costs are marginal at this scale.',
+  },
 ];
 
-// Artigos fictícios para o demo animado
-const DEMO_ARTICLES = [
-  { source: 'BBC News',     color: '#b80000', title: 'EU leaders reach historic climate agreement at Brussels summit', time: '2m' },
-  { source: 'Público',      color: '#1a1aff', title: 'Portugal regista crescimento de 2,3% no primeiro trimestre', time: '8m' },
-  { source: 'The Guardian', color: '#005689', title: 'Scientists discover new approach to carbon capture technology', time: '15m' },
-];
+// ─── Subcomponentes ────────────────────────────────────────────────────────────
 
-const DEMO_SUMMARY = 'Líderes europeus chegaram a acordo sobre metas climáticas para 2035. O pacto prevê redução de 65% nas emissões e investimento de €400 mil milhões em energias renováveis.';
-
-// ─── Marquee ──────────────────────────────────────────────────────────────────
-
-function Marquee({ items }: { items: typeof SOURCES }) {
-  const trackRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const el = trackRef.current;
-    if (!el) return;
-    const totalWidth = el.scrollWidth / 2;
-    const tween = gsap.to(el, {
-      x: -totalWidth, duration: 30, ease: 'none', repeat: -1,
-      modifiers: { x: gsap.utils.unitize(x => parseFloat(x) % totalWidth) },
-    });
-    return () => { tween.kill(); };
-  }, []);
-
-  const doubled = [...items, ...items];
-
+/** FAQ accordion item */
+function FAQItem({ q, a }: { q: string; a: string }) {
+  const [open, setOpen] = useState(false);
   return (
-    <div className="overflow-hidden w-full">
-      <div ref={trackRef} className="flex gap-3 w-max">
-        {doubled.map((s, i) => (
-          <div key={i} className="flex items-center gap-2 px-4 py-2 rounded-full border border-border bg-bg2 flex-shrink-0">
-            <span className="w-2 h-2 rounded-full" style={{ backgroundColor: s.color }} />
-            <span className="text-sm text-muted font-medium whitespace-nowrap">{s.name}</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-// ─── Demo animado (substitui vídeo) ───────────────────────────────────────────
-
-/** Vista: Feed com cards a aparecer */
-function DemoFeed({ visibleCards }: { visibleCards: number }) {
-  return (
-    <div className="flex flex-col gap-2.5 p-3">
-      {DEMO_ARTICLES.slice(0, visibleCards).map((a, i) => (
-        <motion.div
-          key={i}
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3, ease: [0.25, 0.1, 0.25, 1] }}
-          className="flex flex-col gap-2 p-3 rounded-xl border border-border bg-bg2"
-        >
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: a.color }} />
-              <span className="text-[10px] text-muted font-medium">{a.source}</span>
-            </div>
-            <span className="text-[10px] text-muted">{a.time}</span>
-          </div>
-          <p className="text-xs font-semibold text-text leading-snug line-clamp-2">{a.title}</p>
-          <div className="flex gap-1.5">
-            <div className="flex items-center gap-1 px-2 py-1 rounded-md bg-green-bg border border-green-bdr">
-              <Sparkles size={8} className="text-green" />
-              <span className="text-[9px] text-green">Resumo IA</span>
-            </div>
-            <div className="flex items-center gap-1 px-2 py-1 rounded-md border border-border">
-              <Plus size={8} className="text-muted" />
-              <span className="text-[9px] text-muted">Seguir</span>
-            </div>
-            <div className="ml-auto flex items-center gap-1 px-2 py-1 rounded-md border border-border">
-              <ExternalLink size={8} className="text-muted" />
-              <span className="text-[9px] text-muted">Abrir</span>
-            </div>
-          </div>
-        </motion.div>
-      ))}
-    </div>
-  );
-}
-
-/** Vista: AI Summary expandido */
-function DemoSummary() {
-  const [chars, setChars] = useState(0);
-
-  useEffect(() => {
-    let i = 0;
-    const interval = setInterval(() => {
-      i += 3;
-      setChars(i);
-      if (i >= DEMO_SUMMARY.length) clearInterval(interval);
-    }, 20);
-    return () => clearInterval(interval);
-  }, []);
-
-  return (
-    <div className="flex flex-col gap-2.5 p-3">
-      {/* Card com summary aberto */}
-      <div className="flex flex-col gap-2 p-3 rounded-xl border border-green-bdr bg-bg2">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-1.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#b80000]" />
-            <span className="text-[10px] text-muted font-medium">BBC News</span>
-          </div>
-          <span className="text-[10px] text-muted">2m</span>
-        </div>
-        <p className="text-xs font-semibold text-text leading-snug line-clamp-2">
-          {DEMO_ARTICLES[0].title}
-        </p>
-        {/* Summary box */}
-        <div className="p-2.5 rounded-lg bg-green-bg border border-green-bdr">
-          <div className="flex items-center gap-1.5 mb-1.5">
-            <Sparkles size={9} className="text-green flex-shrink-0" />
-            <span className="text-[9px] text-green font-medium">Resumo IA</span>
-          </div>
-          <p className="text-[10px] text-text leading-relaxed">
-            {DEMO_SUMMARY.slice(0, chars)}
-            {chars < DEMO_SUMMARY.length && (
-              <span className="inline-block w-0.5 h-3 bg-green ml-0.5 animate-pulse" />
-            )}
-          </p>
-        </div>
-        <div className="flex gap-1.5">
-          <div className="flex items-center gap-1 px-2 py-1 rounded-md bg-green-bg border border-green-bdr">
-            <Sparkles size={8} className="text-green" />
-            <span className="text-[9px] text-green">Resumo IA</span>
-          </div>
-          <div className="ml-auto flex items-center gap-1 px-2 py-1 rounded-md border border-border">
-            <ExternalLink size={8} className="text-muted" />
-            <span className="text-[9px] text-muted">Abrir</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Cards restantes */}
-      {DEMO_ARTICLES.slice(1).map((a, i) => (
-        <div key={i} className="flex flex-col gap-2 p-3 rounded-xl border border-border bg-bg2 opacity-50">
-          <div className="flex items-center gap-1.5">
-            <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: a.color }} />
-            <span className="text-[10px] text-muted font-medium">{a.source}</span>
-          </div>
-          <p className="text-xs font-semibold text-text leading-snug line-clamp-1">{a.title}</p>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-/** Vista: Topic follow */
-function DemoFollow() {
-  const [typed, setTyped] = useState(0);
-  const [showResult, setShowResult] = useState(false);
-  const QUERY = 'alterações climáticas Europa';
-
-  useEffect(() => {
-    let i = 0;
-    const interval = setInterval(() => {
-      i += 2;
-      setTyped(i);
-      if (i >= QUERY.length) {
-        clearInterval(interval);
-        setTimeout(() => setShowResult(true), 600);
-      }
-    }, 40);
-    return () => clearInterval(interval);
-  }, []);
-
-  return (
-    <div className="p-3 flex flex-col gap-3">
-      {/* Input box */}
-      <div className="flex flex-col gap-2 p-3 rounded-xl border border-border bg-bg2">
-        <p className="text-[9px] text-muted font-medium uppercase tracking-wide">Seguir tema</p>
-        <div className="flex items-center gap-2 p-2 rounded-lg bg-bg3 border border-border">
-          <span className="text-sm">🌍</span>
-          <span className="text-xs text-text">
-            {QUERY.slice(0, typed)}
-            {typed < QUERY.length && (
-              <span className="inline-block w-0.5 h-3 bg-gold ml-0.5 animate-pulse" />
-            )}
-          </span>
-        </div>
-        {typed >= QUERY.length && (
-          <motion.button
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="w-full py-1.5 rounded-lg bg-gold text-bg text-xs font-semibold"
+    <div className="border-b border-border">
+      <button
+        onClick={() => setOpen(v => !v)}
+        className="w-full flex items-center justify-between gap-4 py-4 text-left group"
+      >
+        <span className="text-sm text-text group-hover:text-gold transition-colors">{q}</span>
+        <span className="text-muted flex-shrink-0 w-5 h-5 flex items-center justify-center rounded-full border border-border group-hover:border-border2 transition-colors">
+          <motion.span
+            animate={{ rotate: open ? 45 : 0 }}
+            transition={{ duration: 0.2 }}
+            className="block text-xs leading-none"
           >
-            Seguir
-          </motion.button>
-        )}
-      </div>
-
-      {/* Resultado */}
-      <AnimatePresence>
-        {showResult && (
+            +
+          </motion.span>
+        </span>
+      </button>
+      <AnimatePresence initial={false}>
+        {open && (
           <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="flex flex-col gap-1.5 p-2.5 rounded-xl border border-gold/30 bg-gold-dim"
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.25, ease: [0.25, 0.1, 0.25, 1] }}
+            className="overflow-hidden"
           >
-            <div className="flex items-center gap-1.5">
-              <span className="text-sm">🌍</span>
-              <span className="text-xs text-gold font-medium">alterações climáticas Europa</span>
-            </div>
-            <p className="text-[9px] text-muted">3 artigos correspondentes encontrados</p>
-            <div className="w-12 h-1 rounded-full bg-gold/40 mt-0.5" />
+            <p className="pb-4 text-sm text-muted leading-relaxed">{a}</p>
           </motion.div>
         )}
       </AnimatePresence>
@@ -251,430 +85,459 @@ function DemoFollow() {
   );
 }
 
-/** Demo automático que cicla entre os 3 estados */
-function AutoDemo() {
-  const [step, setStep] = useState(0);
-  const [visibleCards, setVisibleCards] = useState(0);
-  const DURATIONS = [3500, 4000, 3500];
-
-  useEffect(() => {
-    // Animar cards no step 0
-    if (step === 0) {
-      setVisibleCards(0);
-      const t1 = setTimeout(() => setVisibleCards(1), 300);
-      const t2 = setTimeout(() => setVisibleCards(2), 700);
-      const t3 = setTimeout(() => setVisibleCards(3), 1100);
-      return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
-    }
-  }, [step]);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setStep(s => (s + 1) % 3);
-    }, DURATIONS[step]);
-    return () => clearTimeout(timer);
-  }, [step]);
-
-  const stepLabels = ['Feed', 'Resumo IA', 'Seguir temas'];
-
+/** Mini mockup: Topic follow */
+function TopicFollowMockup() {
+  const topics = [
+    { emoji: '🟡', label: 'War in Ukraine',        badge: '2',          color: '#c8a96e' },
+    { emoji: '🔵', label: 'Artificial Intelligence', badge: '1',         color: '#4a90d9' },
+    { emoji: '🟢', label: 'Global Economy',          badge: 'up to date', color: '#888' },
+  ];
   return (
-    <div className="rounded-2xl border border-border bg-bg3 overflow-hidden" style={{ boxShadow: '0 0 60px rgba(200,169,110,0.06)' }}>
-      {/* Chrome do browser */}
-      <div className="flex items-center gap-2 px-4 py-3 border-b border-border bg-bg2">
-        <div className="flex gap-1.5">
-          {['#ff5f57', '#febc2e', '#28c840'].map(c => (
-            <div key={c} className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: c }} />
-          ))}
-        </div>
-        <div className="flex-1 flex items-center gap-2 bg-bg3 rounded-full px-3 py-1 mx-2">
-          <img src="/favicon.svg" className="w-3 h-3 opacity-60" alt="" />
-          <span className="text-[10px] text-muted">grain.app/feed</span>
-        </div>
-      </div>
-
-      {/* Step indicators */}
-      <div className="flex border-b border-border">
-        {stepLabels.map((label, i) => (
-          <button
-            key={label}
-            className={`flex-1 py-2 text-[10px] font-medium transition-colors ${
-              step === i ? 'text-gold border-b-2 border-gold bg-gold-dim/30' : 'text-muted'
-            }`}
+    <div className="flex flex-col gap-2 mt-3">
+      {topics.map(t => (
+        <div key={t.label} className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-bg3 border border-border">
+          <div className="flex items-center gap-2">
+            <span className="text-sm">{t.emoji}</span>
+            <span className="text-xs text-text">{t.label}</span>
+          </div>
+          <span
+            className="text-[10px] px-1.5 py-0.5 rounded-full"
+            style={{
+              backgroundColor: t.badge === 'up to date' ? 'transparent' : t.color + '22',
+              color: t.badge === 'up to date' ? '#555' : t.color,
+              border: t.badge === 'up to date' ? '1px solid #222' : `1px solid ${t.color}44`,
+            }}
           >
-            {label}
-          </button>
+            {t.badge}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** Mini mockup: Sources */
+function SourcesMockup() {
+  const active = [
+    { label: 'BBC',    color: '#b80000' },
+    { label: 'Público',color: '#1a1aff' },
+    { label: 'Reuters',color: '#ff8000' },
+  ];
+  const inactive = ['The Verge', 'Ars Technica'];
+  return (
+    <div className="mt-3 flex flex-col gap-2">
+      <div className="flex flex-wrap gap-1.5">
+        {active.map(s => (
+          <span key={s.label} className="text-xs px-2.5 py-1 rounded-full font-medium text-bg" style={{ backgroundColor: s.color }}>
+            {s.label}
+          </span>
+        ))}
+        {inactive.map(s => (
+          <span key={s} className="text-xs px-2.5 py-1 rounded-full text-muted border border-border">{s}</span>
         ))}
       </div>
+      <button className="flex items-center gap-1 text-xs text-muted hover:text-gold transition-colors mt-1">
+        <Plus size={10} />
+        suggest a source
+      </button>
+    </div>
+  );
+}
 
-      {/* Conteúdo animado */}
-      <div className="min-h-[280px]">
-        <AnimatePresence mode="wait">
-          {step === 0 && (
-            <motion.div key="feed" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }}>
-              <DemoFeed visibleCards={visibleCards} />
-            </motion.div>
-          )}
-          {step === 1 && (
-            <motion.div key="summary" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }}>
-              <DemoSummary />
-            </motion.div>
-          )}
-          {step === 2 && (
-            <motion.div key="follow" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }}>
-              <DemoFollow />
-            </motion.div>
-          )}
-        </AnimatePresence>
+/** Mini mockup: Translation */
+function TranslationMockup() {
+  return (
+    <div className="mt-3">
+      <div className="p-3 rounded-xl border border-border bg-bg3">
+        <div className="flex items-center gap-1.5 mb-2">
+          <span className="text-[9px] text-gold border border-gold/30 bg-gold/10 px-1.5 py-0.5 rounded-full">auto-translated</span>
+        </div>
+        <p className="text-xs text-text leading-relaxed line-clamp-4">
+          "Ukrainian forces advanced +4km in the Kharkiv region, recapturing two strategic villages..."
+        </p>
       </div>
     </div>
   );
 }
 
-// ─── Como funciona ─────────────────────────────────────────────────────────────
-
-const HOW_STEPS = [
-  {
-    num: '01',
-    icon: Rss,
-    title: 'Abre o feed',
-    desc: 'Fontes de jornalismo de qualidade, em PT e EN. Cronológico, sem algoritmo que decida o que vês.',
-  },
-  {
-    num: '02',
-    icon: Sparkles,
-    title: 'Resume com IA',
-    desc: 'Clica "Resumo IA" em qualquer artigo. O Gemini resume em Português Europeu em segundos.',
-  },
-  {
-    num: '03',
-    icon: BookmarkCheck,
-    title: 'Segue o que importa',
-    desc: 'Descreve um tema em linguagem natural. O grain encontra artigos correspondentes automaticamente.',
-  },
-];
-
-function StepCard({ step, index }: { step: typeof HOW_STEPS[0]; index: number }) {
+/** Fade-in section wrapper */
+function FadeIn({ children, delay = 0, className = '' }: { children: React.ReactNode; delay?: number; className?: string }) {
   const ref = useRef(null);
   const isInView = useInView(ref, { once: true, margin: '-60px' });
-  const Icon = step.icon;
-
   return (
     <motion.div
       ref={ref}
-      initial={{ opacity: 0, y: 24 }}
+      initial={{ opacity: 0, y: 20 }}
       animate={isInView ? { opacity: 1, y: 0 } : {}}
-      transition={{ delay: index * 0.12, duration: 0.5, ease: [0.25, 0.1, 0.25, 1] }}
-      className="flex flex-col gap-4 p-6 rounded-2xl border border-border bg-bg hover:border-border2 transition-colors"
+      transition={{ delay, duration: 0.55, ease: [0.25, 0.1, 0.25, 1] }}
+      className={className}
     >
-      {/* Número com inverted border-radius */}
-      <div className="relative w-fit">
-        <div
-          className="w-11 h-11 flex items-center justify-center font-display font-extrabold text-sm text-bg"
-          style={{
-            backgroundColor: 'var(--color-gold)',
-            borderRadius: '0 12px 12px 12px', // canto TL sharp
-          }}
-        >
-          {step.num}
-        </div>
-        {/* Concave TL corner — círculo da cor do pai cobre o canto sharp */}
-        <div
-          className="absolute top-0 left-0 w-3 h-3"
-          style={{ backgroundColor: 'var(--color-bg2)', borderRadius: '0 0 100% 0' }}
-        />
-      </div>
-
-      <div className="flex items-center gap-2">
-        <Icon size={16} className="text-gold flex-shrink-0" />
-        <h3 className="font-semibold text-text">{step.title}</h3>
-      </div>
-      <p className="text-sm text-muted leading-relaxed">{step.desc}</p>
+      {children}
     </motion.div>
   );
 }
 
-// ─── Feature card ─────────────────────────────────────────────────────────────
-
-function FeatureCard({ feature, index }: { feature: typeof FEATURES[0]; index: number }) {
-  const ref = useRef(null);
-  const isInView = useInView(ref, { once: true, margin: '-80px' });
-  const Icon = feature.icon;
-
-  return (
-    <motion.div
-      ref={ref}
-      initial={{ opacity: 0, y: 24 }}
-      animate={isInView ? { opacity: 1, y: 0 } : {}}
-      transition={{ delay: index * 0.08, duration: 0.5, ease: [0.25, 0.1, 0.25, 1] }}
-      className="flex flex-col gap-3 p-5 rounded-2xl border border-border bg-bg2 hover:border-border2 transition-colors"
-    >
-      <div className="w-9 h-9 rounded-xl bg-bg3 border border-border flex items-center justify-center">
-        <Icon size={16} className="text-gold" />
-      </div>
-      <h3 className="font-semibold text-text">{feature.title}</h3>
-      <p className="text-sm text-muted leading-relaxed">{feature.desc}</p>
-    </motion.div>
-  );
-}
-
-// ─── Página ────────────────────────────────────────────────────────────────────
+// ─── Página principal ──────────────────────────────────────────────────────────
 
 export default function Landing() {
   const { isSignedIn, isLoaded } = useAuth();
   const { openSignIn } = useClerk();
   const navigate = useNavigate();
 
-  // CTA principal → sempre vai para o feed (sem forçar login)
-  function handleCTA() {
-    navigate('/feed');
-  }
-
   return (
     <div className="min-h-screen bg-bg text-text font-body overflow-x-hidden">
 
       {/* ── Navbar ── */}
-      <nav className="fixed top-0 left-0 right-0 z-50 border-b border-border bg-bg/90 backdrop-blur-sm">
+      <nav className="fixed top-0 left-0 right-0 z-50 border-b border-border bg-bg/95 backdrop-blur-sm">
         <div className="max-w-5xl mx-auto px-6 h-14 flex items-center justify-between">
-          {/* Logo */}
           <div className="flex items-center gap-2.5">
             <img src="/favicon.svg" alt="grain" className="w-6 h-6" />
-            <span className="font-display font-extrabold text-xl text-gold tracking-tight">grain</span>
+            <span className="font-display font-extrabold text-xl text-text tracking-tight">grain</span>
           </div>
-
           <div className="flex items-center gap-3">
-            {isLoaded && (
-              isSignedIn ? (
+            {isLoaded && isSignedIn ? (
+              <button
+                onClick={() => navigate('/feed')}
+                className="text-xs text-muted border border-border px-3 py-1.5 rounded-lg hover:text-text hover:border-border2 transition-colors"
+              >
+                open feed
+              </button>
+            ) : (
+              <>
+                <button onClick={() => openSignIn()} className="text-xs text-muted hover:text-text transition-colors hidden sm:block">
+                  sign in
+                </button>
                 <button
                   onClick={() => navigate('/feed')}
-                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm bg-gold text-bg font-semibold hover:bg-gold2 transition-colors"
+                  className="text-xs text-text border border-border px-3 py-1.5 rounded-lg hover:border-border2 transition-colors"
                 >
-                  Abrir feed <ArrowRight size={14} />
+                  get started
                 </button>
-              ) : (
-                <>
-                  <button onClick={() => openSignIn()} className="text-sm text-muted hover:text-text transition-colors">
-                    Entrar
-                  </button>
-                  <button
-                    onClick={handleCTA}
-                    className="px-4 py-2 rounded-xl text-sm bg-gold text-bg font-semibold hover:bg-gold2 transition-colors"
-                  >
-                    Ver feed
-                  </button>
-                </>
-              )
+              </>
             )}
           </div>
         </div>
       </nav>
 
       {/* ── Hero ── */}
-      <section className="pt-32 pb-16 px-6">
-        <div className="max-w-5xl mx-auto">
-          <div className="grid lg:grid-cols-2 gap-12 items-center">
+      <section className="pt-36 pb-16 px-6">
+        <div className="max-w-3xl mx-auto">
 
-            {/* Texto */}
-            <div className="flex flex-col gap-6">
-              <motion.div
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5 }}
-                className="flex items-center gap-2"
-              >
-                <span className="flex gap-[3px]">
-                  {[0, 1, 2].map(i => (
-                    <span
-                      key={i}
-                      className="w-1 h-1 rounded-full bg-gold animate-[dot-pulse_1.4s_ease-in-out_infinite]"
-                      style={{ animationDelay: `${i * 0.2}s` }}
-                    />
-                  ))}
-                </span>
-                <span className="text-xs font-medium text-gold uppercase tracking-widest">Notícias sem ruído</span>
-              </motion.div>
+          {/* Eyebrow */}
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4 }}
+            className="flex items-center gap-1.5 text-xs text-muted mb-6"
+          >
+            <span>RSS feeds</span>
+            <span>·</span>
+            <span>AI summaries</span>
+            <span>·</span>
+            <span>topic follow</span>
+            <ChevronRight size={12} className="text-muted" />
+          </motion.div>
 
-              <motion.h1
-                initial={{ opacity: 0, y: 16 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.1, duration: 0.6, ease: [0.25, 0.1, 0.25, 1] }}
-                className="font-display font-extrabold text-5xl sm:text-6xl text-text leading-[1.05] tracking-tight"
-              >
-                O jornalismo
-                <br />que importa,
-                <br /><span className="text-gold">sem o resto.</span>
-              </motion.h1>
+          {/* Headline */}
+          <motion.h1
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.05, duration: 0.6, ease: [0.25, 0.1, 0.25, 1] }}
+            className="font-display font-extrabold text-5xl sm:text-6xl lg:text-7xl text-text leading-[1.0] tracking-tight mb-6"
+          >
+            news without
+            <br />the <span className="text-gold">noise.</span>
+          </motion.h1>
 
-              <motion.p
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.2, duration: 0.5 }}
-                className="text-base text-muted leading-relaxed max-w-md"
-              >
-                Agrega fontes de qualidade em PT e EN. Resumos IA on-demand.
-                Segue temas por semântica. Sem algoritmos, sem anúncios.
-              </motion.p>
+          {/* Sub */}
+          <motion.p
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.15, duration: 0.5 }}
+            className="text-base text-muted leading-relaxed max-w-xl mb-3"
+          >
+            Trusted sources, AI-summarised on demand, organised
+            around the topics that actually matter to you.
+          </motion.p>
 
-              <motion.div
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.3, duration: 0.4 }}
-                className="flex flex-wrap items-center gap-3"
-              >
-                <button
-                  onClick={handleCTA}
-                  className="flex items-center gap-2 px-6 py-3 rounded-xl bg-gold text-bg font-semibold hover:bg-gold2 transition-colors text-sm"
-                >
-                  Começar grátis <ArrowRight size={15} />
-                </button>
-                <span className="text-xs text-muted">Sem cartão. Sem subscrição.</span>
-              </motion.div>
-            </div>
+          {/* Tagline */}
+          <motion.p
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.2, duration: 0.5 }}
+            className="text-xs text-muted/60 mb-8"
+          >
+            no noise, only grain.
+          </motion.p>
 
-            {/* Demo animado */}
-            <motion.div
-              initial={{ opacity: 0, x: 24 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.2, duration: 0.7, ease: [0.25, 0.1, 0.25, 1] }}
-              className="relative hidden lg:block"
+          {/* CTAs */}
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.25, duration: 0.4 }}
+            className="flex flex-wrap items-center gap-3 mb-4"
+          >
+            <button
+              onClick={() => navigate('/feed')}
+              className="px-5 py-2.5 rounded-lg border border-border text-sm text-text hover:border-border2 hover:bg-bg2 transition-colors"
             >
-              <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-bg to-transparent z-10 pointer-events-none rounded-b-2xl" />
-              <AutoDemo />
-            </motion.div>
-          </div>
+              open the feed
+            </button>
+            <button
+              onClick={() => {
+                document.getElementById('how-it-works')?.scrollIntoView({ behavior: 'smooth' });
+              }}
+              className="px-5 py-2.5 rounded-lg border border-border text-sm text-muted hover:text-text hover:border-border2 transition-colors"
+            >
+              see how it works
+            </button>
+          </motion.div>
+
+          {/* Meta */}
+          <motion.p
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.3, duration: 0.4 }}
+            className="text-xs text-muted/50"
+          >
+            free · no algorithm · no ads
+          </motion.p>
         </div>
       </section>
 
-      {/* ── Marquee de fontes ── */}
-      <section className="py-10 border-y border-border">
-        <div className="mb-4 text-center">
-          <span className="text-xs text-muted uppercase tracking-widest">Fontes incluídas</span>
-        </div>
-        <Marquee items={SOURCES} />
-      </section>
-
-      {/* ── Como funciona — secção com inverted corners no topo ── */}
-      <section className="relative bg-bg2">
-        {/* Inverted border-radius — cantos côncavos no topo */}
-        <div className="absolute top-0 left-0 w-10 h-10 bg-bg" style={{ borderRadius: '0 0 100% 0' }} />
-        <div className="absolute top-0 right-0 w-10 h-10 bg-bg" style={{ borderRadius: '0 0 0 100%' }} />
-
-        <div className="py-20 px-6">
-          <div className="max-w-5xl mx-auto">
-            <div className="text-center mb-12">
-              <motion.h2
-                initial={{ opacity: 0, y: 12 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, margin: '-60px' }}
-                transition={{ duration: 0.5 }}
-                className="font-display font-extrabold text-3xl sm:text-4xl text-text mb-3"
-              >
-                Três passos. Nada mais.
-              </motion.h2>
-              <motion.p
-                initial={{ opacity: 0 }}
-                whileInView={{ opacity: 1 }}
-                viewport={{ once: true }}
-                transition={{ delay: 0.1, duration: 0.5 }}
-                className="text-muted text-base max-w-md mx-auto"
-              >
-                Não há curva de aprendizagem. Abre, lê, segue.
-              </motion.p>
+      {/* ── News ticker ── */}
+      <section className="border-y border-border overflow-x-auto scrollbar-none">
+        <div className="flex divide-x divide-border min-w-max sm:min-w-0">
+          {TICKER_ARTICLES.slice(0, 3).map((a, i) => (
+            <div key={i} className="flex-1 min-w-[260px] p-4">
+              <div className="flex items-center gap-1.5 mb-2">
+                <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: a.color }} />
+                <span className="text-[10px] text-muted font-medium">{a.source}</span>
+                {a.tag && (
+                  <span className="text-[9px] text-muted border border-border px-1.5 py-0.5 rounded-full">{a.tag}</span>
+                )}
+              </div>
+              <p className="text-xs text-text font-medium leading-snug line-clamp-2">{a.title}</p>
             </div>
+          ))}
+        </div>
+      </section>
 
-            <div className="grid sm:grid-cols-3 gap-4">
-              {HOW_STEPS.map((step, i) => (
-                <StepCard key={step.num} step={step} index={i} />
+      {/* ── AI Features — 3 colunas ── */}
+      <section className="py-20 px-6 border-b border-border">
+        <div className="max-w-5xl mx-auto grid sm:grid-cols-3 gap-8 items-start">
+
+          {/* Coluna 1: AI Summaries texto */}
+          <FadeIn delay={0}>
+            <p className="text-[10px] text-muted uppercase tracking-widest mb-4">AI Summaries</p>
+            <h2 className="font-display font-extrabold text-2xl sm:text-3xl text-text leading-tight mb-4">
+              reads for you,<br />only when asked.
+            </h2>
+            <p className="text-sm text-muted leading-relaxed">
+              Every article is automatically translated. The summary is only generated when you ask —
+              no waste, no wait.
+            </p>
+          </FadeIn>
+
+          {/* Coluna 2: Stats */}
+          <FadeIn delay={0.08}>
+            <div className="flex flex-col gap-6">
+              {[
+                { value: '10',  label: 'trusted sources' },
+                { value: '30m', label: 'refresh interval' },
+                { value: '0€',  label: 'cost to the reader' },
+              ].map(s => (
+                <div key={s.label}>
+                  <div className="font-display font-extrabold text-4xl text-text">{s.value}</div>
+                  <div className="text-xs text-muted mt-1">{s.label}</div>
+                </div>
               ))}
             </div>
-          </div>
-        </div>
+          </FadeIn>
 
-        {/* Inverted border-radius — cantos côncavos no fundo */}
-        <div className="absolute bottom-0 left-0 w-10 h-10 bg-bg" style={{ borderRadius: '0 100% 0 0' }} />
-        <div className="absolute bottom-0 right-0 w-10 h-10 bg-bg" style={{ borderRadius: '100% 0 0 0' }} />
-      </section>
-
-      {/* ── Features ── */}
-      <section className="py-20 px-6">
-        <div className="max-w-5xl mx-auto">
-          <div className="text-center mb-12">
-            <motion.h2
-              initial={{ opacity: 0, y: 12 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: '-60px' }}
-              transition={{ duration: 0.5 }}
-              className="font-display font-extrabold text-3xl sm:text-4xl text-text mb-3"
-            >
-              Feito para ler, não para vender.
-            </motion.h2>
-            <motion.p
-              initial={{ opacity: 0 }}
-              whileInView={{ opacity: 1 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0.1, duration: 0.5 }}
-              className="text-muted text-base max-w-lg mx-auto"
-            >
-              O grain não tem feed personalizado. Não sabe o que te mantém mais tempo no ecrã.
-              Não quer saber.
-            </motion.p>
-          </div>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {FEATURES.map((f, i) => (
-              <FeatureCard key={f.title} feature={f} index={i} />
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ── CTA final com inverted border-radius ── */}
-      <section className="py-20 px-6 bg-bg">
-        <div className="max-w-2xl mx-auto">
-          {/* Container com cantos côncavos no topo */}
-          <div className="relative">
-            {/* Inverted corners no topo do card */}
-            <div className="absolute -top-0 left-0 w-8 h-8" style={{ backgroundColor: 'var(--color-bg)', borderRadius: '0 0 100% 0', zIndex: 1 }} />
-            <div className="absolute -top-0 right-0 w-8 h-8" style={{ backgroundColor: 'var(--color-bg)', borderRadius: '0 0 0 100%', zIndex: 1 }} />
-
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: '-60px' }}
-              transition={{ duration: 0.6 }}
-              className="flex flex-col gap-6 p-10 text-center"
-              style={{
-                backgroundColor: 'var(--color-bg2)',
-                border: '0.5px solid var(--color-border)',
-                borderRadius: '0 0 32px 32px',
-                boxShadow: '0 0 80px rgba(200,169,110,0.04)',
-              }}
-            >
-              <div className="font-display font-extrabold text-4xl text-text leading-tight">
-                no noise,
-                <br /><span className="text-gold">only grain.</span>
+          {/* Coluna 3: App mockup */}
+          <FadeIn delay={0.16}>
+            <div className="rounded-xl border border-border bg-bg2 overflow-hidden">
+              {/* Chrome */}
+              <div className="flex items-center gap-1.5 px-3 py-2 border-b border-border bg-bg3">
+                {['#ff5f57','#febc2e','#28c840'].map(c => (
+                  <div key={c} className="w-2 h-2 rounded-full" style={{ backgroundColor: c }} />
+                ))}
+                <div className="flex-1 flex items-center gap-1.5 ml-2 bg-bg rounded-full px-2 py-0.5">
+                  <img src="/favicon.svg" className="w-2.5 h-2.5 opacity-60" alt="" />
+                  <span className="text-[9px] text-muted">grain.app</span>
+                </div>
               </div>
-              <p className="text-muted text-sm">
-                Gratuito. Sem dados vendidos. Sem anúncios. Sem algoritmo.
+              {/* Article cards */}
+              <div className="p-2.5 flex flex-col gap-2">
+                {TICKER_ARTICLES.slice(0, 3).map((a, i) => (
+                  <div key={i} className="flex flex-col gap-1 p-2.5 rounded-lg border border-border bg-bg">
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: a.color }} />
+                      <span className="text-[9px] text-muted">{a.source}</span>
+                    </div>
+                    <p className="text-[10px] text-text font-medium leading-tight line-clamp-2">{a.title}</p>
+                    <div className="flex gap-1 mt-0.5">
+                      <span className="text-[8px] text-green border border-green-bdr bg-green-bg px-1.5 py-0.5 rounded">AI</span>
+                      <span className="text-[8px] text-gold border border-gold/20 bg-gold/5 px-1.5 py-0.5 rounded">follow</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </FadeIn>
+        </div>
+      </section>
+
+      {/* ── 3 Feature cards com mini UI ── */}
+      <section className="py-20 px-6 border-b border-border">
+        <div className="max-w-5xl mx-auto grid sm:grid-cols-3 gap-5">
+
+          {/* Card 1: Topic follow */}
+          <FadeIn delay={0} className="flex flex-col p-6 rounded-2xl border border-border bg-bg2">
+            <p className="text-[10px] text-muted uppercase tracking-widest mb-3">Topic Follow</p>
+            <h3 className="font-display font-extrabold text-xl text-text leading-tight">
+              follow the story,<br />not the article.
+            </h3>
+            <p className="text-xs text-muted mt-2 mb-1 leading-relaxed">
+              Describe a topic. New matching articles appear automatically.
+            </p>
+            <TopicFollowMockup />
+          </FadeIn>
+
+          {/* Card 2: Your sources */}
+          <FadeIn delay={0.08} className="flex flex-col p-6 rounded-2xl border border-border bg-bg2">
+            <p className="text-[10px] text-muted uppercase tracking-widest mb-3">Your Sources</p>
+            <h3 className="font-display font-extrabold text-xl text-text leading-tight">
+              you decide<br />where it comes from.
+            </h3>
+            <p className="text-xs text-muted mt-2 mb-1 leading-relaxed">
+              Toggle any of the 10+ outlets. Suggest ones we're missing.
+            </p>
+            <SourcesMockup />
+          </FadeIn>
+
+          {/* Card 3: Language */}
+          <FadeIn delay={0.16} className="flex flex-col p-6 rounded-2xl border border-border bg-bg2">
+            <p className="text-[10px] text-muted uppercase tracking-widest mb-3">No Language Barrier</p>
+            <h3 className="font-display font-extrabold text-xl text-text leading-tight">
+              always in<br />your language.
+            </h3>
+            <p className="text-xs text-muted mt-2 mb-1 leading-relaxed">
+              English articles are automatically translated to European Portuguese.
+            </p>
+            <TranslationMockup />
+          </FadeIn>
+        </div>
+      </section>
+
+      {/* ── See how it works (video placeholder) ── */}
+      <section id="how-it-works" className="py-20 px-6 border-b border-border">
+        <div className="max-w-3xl mx-auto">
+          <FadeIn>
+            <div className="text-center mb-10">
+              <p className="text-[10px] text-muted uppercase tracking-widest mb-4">In Action</p>
+              <h2 className="font-display font-extrabold text-3xl sm:text-4xl text-text leading-tight">
+                see how it <span className="text-gold">works</span>
+              </h2>
+              <p className="text-sm text-muted mt-3 max-w-md mx-auto leading-relaxed">
+                Two minutes that show everything — from the feed to follow,
+                through AI summaries.
               </p>
-              <button
-                onClick={handleCTA}
-                className="flex items-center justify-center gap-2 px-8 py-3.5 rounded-xl bg-gold text-bg font-semibold hover:bg-gold2 transition-colors text-sm mx-auto"
-              >
-                {isSignedIn ? 'Ir para o feed' : 'Começar grátis'}
-                <ArrowRight size={15} />
-              </button>
-            </motion.div>
-          </div>
+            </div>
+          </FadeIn>
+
+          <FadeIn delay={0.1}>
+            {/* Video placeholder */}
+            <div className="w-full aspect-video bg-bg2 border border-border rounded-2xl flex items-center justify-center relative overflow-hidden">
+              {/* Subtle grid background */}
+              <div
+                className="absolute inset-0 opacity-[0.03]"
+                style={{
+                  backgroundImage: 'linear-gradient(var(--color-border) 1px, transparent 1px), linear-gradient(90deg, var(--color-border) 1px, transparent 1px)',
+                  backgroundSize: '40px 40px',
+                }}
+              />
+              {/* Play button */}
+              <div className="relative flex flex-col items-center gap-4">
+                <button className="w-16 h-16 rounded-full bg-gold hover:bg-gold2 transition-colors flex items-center justify-center shadow-lg">
+                  <Play size={22} className="text-bg ml-1" fill="currentColor" />
+                </button>
+                <span className="text-xs text-muted">grain · product demo · 2 min</span>
+              </div>
+            </div>
+          </FadeIn>
+
+          {/* Feature dots */}
+          <FadeIn delay={0.2}>
+            <div className="flex flex-wrap justify-center gap-x-6 gap-y-2 mt-6">
+              {['real-time feed', 'AI summaries on demand', 'semantic topic follow', 'source management'].map(f => (
+                <div key={f} className="flex items-center gap-1.5 text-xs text-muted">
+                  <span className="w-1 h-1 rounded-full bg-gold" />
+                  {f}
+                </div>
+              ))}
+            </div>
+          </FadeIn>
+        </div>
+      </section>
+
+      {/* ── FAQ ── */}
+      <section className="py-20 px-6 border-b border-border">
+        <div className="max-w-5xl mx-auto grid sm:grid-cols-[1fr_2fr] gap-12 items-start">
+
+          {/* Left: label + headline */}
+          <FadeIn>
+            <p className="text-[10px] text-muted uppercase tracking-widest mb-4">FAQ</p>
+            <h2 className="font-display font-extrabold text-3xl sm:text-4xl text-text leading-tight">
+              any <span className="text-gold">questions?</span>
+            </h2>
+            <p className="text-sm text-muted mt-4 leading-relaxed">
+              The most common questions about how grain works, what it
+              needs, and what it doesn't do.
+            </p>
+          </FadeIn>
+
+          {/* Right: accordion */}
+          <FadeIn delay={0.05}>
+            <div className="border-t border-border">
+              {FAQ_ITEMS.map(item => (
+                <FAQItem key={item.q} q={item.q} a={item.a} />
+              ))}
+            </div>
+          </FadeIn>
+        </div>
+      </section>
+
+      {/* ── Final CTA ── */}
+      <section className="py-28 px-6">
+        <div className="max-w-xl mx-auto flex flex-col items-center text-center gap-6">
+          <FadeIn className="flex flex-col items-center gap-6">
+            <img src="/favicon.svg" alt="grain" className="w-12 h-12" />
+            <h2 className="font-display font-extrabold text-4xl sm:text-5xl text-text leading-tight">
+              news with <span className="text-gold">texture,</span>
+              <br />not noise.
+            </h2>
+            <p className="text-xs text-muted/60">no noise, only grain.</p>
+            <button
+              onClick={() => navigate('/feed')}
+              className="px-8 py-3 rounded-xl border border-border text-sm text-text hover:border-border2 hover:bg-bg2 transition-colors"
+            >
+              start reading
+            </button>
+            <p className="text-xs text-muted/40">free · no algorithm · no ads</p>
+          </FadeIn>
         </div>
       </section>
 
       {/* ── Footer ── */}
-      <footer className="border-t border-border px-6 py-8">
+      <footer className="border-t border-border px-6 py-6">
         <div className="max-w-5xl mx-auto flex items-center justify-between gap-4">
           <div className="flex items-center gap-2">
             <img src="/favicon.svg" alt="grain" className="w-5 h-5" />
-            <span className="font-display font-extrabold text-gold">grain</span>
+            <span className="font-display font-extrabold text-sm text-text">grain</span>
           </div>
-          <span className="text-xs text-muted">Feito com cuidado. Sem rastreadores.</span>
+          <span className="text-xs text-muted/50">no noise, only grain.</span>
         </div>
       </footer>
 
