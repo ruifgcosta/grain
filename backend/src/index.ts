@@ -14,6 +14,7 @@ import type { Env } from './types/index';
 import { requireAuth, optionalAuth } from './middleware/auth';
 import { adminOnly } from './middleware/adminOnly';
 import { fetchRSSFeed, parseArticles } from './services/rss';
+import { translateBatch, generateEmbeddingsBatch, generateSummary, extractTopic } from './services/gemini';
 
 // Variáveis injectadas pelos middlewares de autenticação
 type Variables = {
@@ -82,6 +83,50 @@ app.get('/api/test/rss', async (c) => {
     const xml = await fetchRSSFeed(url);
     const articles = parseArticles(xml, sourceId);
     return c.json({ total: articles.length, articles: articles.slice(0, 3) });
+  } catch (err) {
+    return c.json({ error: err instanceof Error ? err.message : String(err) }, 500);
+  }
+});
+
+/**
+ * GET /api/test/gemini
+ * Rota de teste temporária para o Passo 2.2 — remover depois.
+ * Testa tradução, embeddings, resumo e extracção de tema.
+ */
+app.get('/api/test/gemini', async (c) => {
+  const apiKey = c.env.GEMINI_API_KEY;
+  if (!apiKey) return c.json({ error: 'GEMINI_API_KEY não configurada' }, 500);
+
+  try {
+    // Artigo de teste (BBC em inglês)
+    const testTitle = 'EU announces new climate targets for 2035';
+    const testDesc = 'The European Union has set ambitious new climate goals, aiming to reduce emissions by 90% compared to 1990 levels by 2040, as part of its Green Deal strategy.';
+
+    // 1. Tradução
+    const [translated] = await translateBatch(
+      [{ id: 'test1', title: testTitle, desc: testDesc }],
+      apiKey
+    );
+
+    // 2. Embedding do título traduzido
+    const [embedding] = await generateEmbeddingsBatch([translated.translated_title], apiKey);
+
+    // 3. Resumo
+    const summary = await generateSummary(`${testTitle}\n${testDesc}`, apiKey);
+
+    // 4. Tema
+    const topic = await extractTopic(`${testTitle}\n${testDesc}`, apiKey);
+
+    return c.json({
+      translation: {
+        title: translated.translated_title,
+        desc: translated.translated_desc,
+      },
+      embedding_dims: embedding.length,
+      embedding_sample: embedding.slice(0, 5),
+      summary,
+      topic,
+    });
   } catch (err) {
     return c.json({ error: err instanceof Error ? err.message : String(err) }, 500);
   }
