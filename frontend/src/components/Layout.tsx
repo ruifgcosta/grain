@@ -32,7 +32,7 @@ export default function Layout({ children }: LayoutProps) {
             onClick={() => navigate('/feed')}
             className="flex items-center gap-2 font-display font-extrabold text-xl text-gold tracking-tight"
           >
-            <img src="/favicon.svg" alt="grain" className="w-6 h-6" />
+            <img src={`${import.meta.env.BASE_URL.replace(/\/$/, '')}/favicon.svg`} alt="grain" className="w-6 h-6" />
             grain
           </button>
 

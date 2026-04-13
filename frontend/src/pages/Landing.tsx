@@ -91,11 +91,13 @@ function FAQItem({ q, a }: { q: string; a: string }) {
   );
 }
 
-// ─── Logo — usa sempre /logo.svg ──────────────────────────────────────────────
+// ─── Logo — usa sempre /logo.svg (com BASE_URL correcto) ─────────────────────
+const BASE = import.meta.env.BASE_URL.replace(/\/$/, ''); // ex: "/grain"
+
 function Logo({ size = 32 }: { size?: number }) {
   return (
     <img
-      src="/logo.svg"
+      src={`${BASE}/logo.svg`}
       alt="grain logo"
       width={size}
       height={size}
