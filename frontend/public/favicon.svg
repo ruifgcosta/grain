@@ -1,9 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-  <!-- Fundo creme com cantos arredondados — versão ícone -->
-  <rect width="100" height="100" rx="22" fill="#EDE8DC"/>
+  <!-- Sem fundo — versão para UI escura (navbar, tabs) -->
 
-  <!-- Dot central — grande, preto -->
-  <circle cx="50" cy="50" r="12" fill="#111111"/>
+  <!-- Dot central — claro sobre fundo escuro -->
+  <circle cx="50" cy="50" r="12" fill="#EDE8DC"/>
 
   <!-- 8 dots à volta — raio 22 do centro, posições horárias -->
 

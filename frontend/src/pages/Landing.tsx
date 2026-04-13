@@ -36,14 +36,20 @@ const MOCK_ARTICLES = [
 
 // ─── Logo component ───────────────────────────────────────────────────────────
 
-function GrainLogo({ size = 28, className = '' }: { size?: number; className?: string }) {
+/**
+ * GrainLogo — duas variantes:
+ *  - dark (default): favicon.svg, sem fundo, dots claros → para navbar/UI escura
+ *  - light: logo.svg, com fundo creme → para hero, CTA, footer
+ */
+function GrainLogo({ size = 28, variant = 'dark', className = '' }: { size?: number; variant?: 'dark' | 'light'; className?: string }) {
+  const src = variant === 'light' ? '/logo.svg' : '/favicon.svg';
   return (
     <img
-      src="/logo.svg"
+      src={src}
       alt="grain"
       width={size}
       height={size}
-      className={`rounded-lg ${className}`}
+      className={variant === 'light' ? `rounded-xl ${className}` : className}
       style={{ imageRendering: 'crisp-edges' }}
     />
   );
@@ -294,7 +300,7 @@ export default function Landing() {
             className="flex justify-center mb-8">
             <div className="relative">
               <div className="absolute inset-0 rounded-2xl blur-xl opacity-30" style={{ backgroundColor: '#c8a96e' }} />
-              <GrainLogo size={64} className="relative rounded-2xl shadow-2xl" />
+              <GrainLogo size={64} variant="light" className="relative shadow-2xl" />
             </div>
           </motion.div>
 
@@ -524,7 +530,7 @@ export default function Landing() {
         <FadeIn className="max-w-xl mx-auto text-center flex flex-col items-center gap-6 relative">
           <div className="relative">
             <div className="absolute inset-0 rounded-2xl blur-2xl opacity-20" style={{ backgroundColor: '#c8a96e' }} />
-            <GrainLogo size={72} className="relative rounded-2xl shadow-2xl" />
+            <GrainLogo size={72} variant="light" className="relative shadow-2xl" />
           </div>
           <h2 className="font-display font-extrabold text-4xl sm:text-5xl text-text leading-tight">
             news with <span className="text-gold">texture,</span><br />not noise.
