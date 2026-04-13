@@ -266,7 +266,7 @@ export default function Landing() {
           {/* LOGO REAL */}
           <button onClick={() => navigate('/landing')} className="flex items-center gap-2.5">
             <Logo size={32} />
-            <span style={{ fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: '1.2rem', color: C.text, letterSpacing: '-0.02em' }}>grain</span>
+            <span style={{ fontFamily: 'Lora, Georgia, serif', fontWeight: 600, fontSize: '1.2rem', color: C.text, letterSpacing: '-0.02em' }}>grain</span>
           </button>
 
           <div className="hidden sm:flex items-center gap-6 text-sm" style={{ color: C.muted }}>
@@ -320,7 +320,7 @@ export default function Landing() {
           {/* Headline */}
           <motion.h1 initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.08, duration: 0.6, ease: [0.25, 0.1, 0.25, 1] }}
-            style={{ fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: 'clamp(2.8rem, 7vw, 5rem)', lineHeight: 1.0, letterSpacing: '-0.03em', color: C.text, marginBottom: '1.5rem' }}>
+            style={{ fontFamily: 'Lora, Georgia, serif', fontWeight: 600, fontSize: 'clamp(2.8rem, 7vw, 5rem)', lineHeight: 1.0, letterSpacing: '-0.03em', color: C.text, marginBottom: '1.5rem' }}>
             news without<br />the <span style={{ color: C.gold }}>noise.</span>
           </motion.h1>
 
@@ -407,7 +407,7 @@ export default function Landing() {
       <section style={{ padding: '5rem 1.5rem', borderBottom: `1px solid ${C.border}` }}>
         <div className="max-w-4xl mx-auto">
           <FadeIn className="text-center mb-14">
-            <h2 style={{ fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: 'clamp(1.8rem, 4vw, 2.8rem)', color: C.text, marginBottom: '0.75rem', letterSpacing: '-0.02em' }}>
+            <h2 style={{ fontFamily: 'Lora, Georgia, serif', fontWeight: 600, fontSize: 'clamp(1.8rem, 4vw, 2.8rem)', color: C.text, marginBottom: '0.75rem', letterSpacing: '-0.02em' }}>
               News that feels human.
             </h2>
             <p style={{ color: C.muted, fontSize: '1rem', maxWidth: '28rem', margin: '0 auto' }}>
@@ -439,7 +439,7 @@ export default function Landing() {
       <section id="how" style={{ padding: '5rem 1.5rem', borderBottom: `1px solid ${C.border}` }}>
         <div className="max-w-5xl mx-auto">
           <FadeIn className="text-center mb-16">
-            <h2 style={{ fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: 'clamp(1.8rem, 4vw, 2.8rem)', color: C.text, letterSpacing: '-0.02em' }}>
+            <h2 style={{ fontFamily: 'Lora, Georgia, serif', fontWeight: 600, fontSize: 'clamp(1.8rem, 4vw, 2.8rem)', color: C.text, letterSpacing: '-0.02em' }}>
               How grain works
             </h2>
             <p className="mt-3 max-w-md mx-auto" style={{ color: C.muted }}>From opening the feed to following what matters — it takes seconds.</p>
@@ -458,7 +458,7 @@ export default function Landing() {
                     <span className="text-xs font-mono uppercase tracking-widest" style={{ color: C.gold }}>
                       {step.n}
                     </span>
-                    <h3 style={{ fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: 'clamp(1.4rem, 3vw, 2rem)', color: C.text, lineHeight: 1.15, letterSpacing: '-0.02em', whiteSpace: 'pre-line' }}>
+                    <h3 style={{ fontFamily: 'Lora, Georgia, serif', fontWeight: 600, fontSize: 'clamp(1.4rem, 3vw, 2rem)', color: C.text, lineHeight: 1.15, letterSpacing: '-0.02em', whiteSpace: 'pre-line' }}>
                       {step.title}
                     </h3>
                     <p className="leading-relaxed" style={{ color: C.muted }}>{step.desc}</p>
@@ -478,7 +478,7 @@ export default function Landing() {
         <div className="absolute inset-0 pointer-events-none"
           style={{ background: 'radial-gradient(ellipse at 50% 50%, rgba(200,150,60,0.1) 0%, transparent 70%)', filter: 'blur(30px)' }} />
         <FadeIn className="max-w-2xl mx-auto text-center relative">
-          <h2 style={{ fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: 'clamp(1.8rem, 4vw, 2.5rem)', color: C.text, marginBottom: '1rem', letterSpacing: '-0.02em' }}>
+          <h2 style={{ fontFamily: 'Lora, Georgia, serif', fontWeight: 600, fontSize: 'clamp(1.8rem, 4vw, 2.5rem)', color: C.text, marginBottom: '1rem', letterSpacing: '-0.02em' }}>
             Quality journalism,<br />without the subscription wall.
           </h2>
           <p className="mb-8 max-w-md mx-auto" style={{ color: C.muted, fontSize: '0.95rem', lineHeight: 1.6 }}>
@@ -506,7 +506,7 @@ export default function Landing() {
         <div className="max-w-5xl mx-auto grid sm:grid-cols-[260px_1fr] gap-16 items-start">
           <FadeIn>
             <p className="text-xs uppercase tracking-widest mb-4" style={{ color: C.muted2 }}>FAQ</p>
-            <h2 style={{ fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: '2rem', color: C.text, lineHeight: 1.2, letterSpacing: '-0.02em' }}>
+            <h2 style={{ fontFamily: 'Lora, Georgia, serif', fontWeight: 600, fontSize: '2rem', color: C.text, lineHeight: 1.2, letterSpacing: '-0.02em' }}>
               Frequently<br />asked<br /><span style={{ color: C.gold }}>questions.</span>
             </h2>
             <p className="mt-4 text-sm leading-relaxed" style={{ color: C.muted }}>
@@ -533,7 +533,7 @@ export default function Landing() {
           {/* LOGO REAL em destaque */}
           <Logo size={80} />
 
-          <h2 style={{ fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: 'clamp(2rem, 5vw, 3.2rem)', color: C.text, lineHeight: 1.05, letterSpacing: '-0.03em' }}>
+          <h2 style={{ fontFamily: 'Lora, Georgia, serif', fontWeight: 600, fontSize: 'clamp(2rem, 5vw, 3.2rem)', color: C.text, lineHeight: 1.05, letterSpacing: '-0.03em' }}>
             News without<br />the <span style={{ color: C.gold }}>noise.</span>
           </h2>
           <p style={{ color: C.muted2, fontSize: '0.85rem' }}>no noise, only grain.</p>
@@ -552,7 +552,7 @@ export default function Landing() {
           {/* LOGO REAL no footer */}
           <div className="flex items-center gap-2.5">
             <Logo size={28} />
-            <span style={{ fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: '1rem', color: C.text }}>grain</span>
+            <span style={{ fontFamily: 'Lora, Georgia, serif', fontWeight: 600, fontSize: '1rem', color: C.text }}>grain</span>
           </div>
           <div className="flex items-center gap-6 text-xs" style={{ color: C.muted }}>
             <button onClick={() => navigate('/feed')} className="hover:opacity-70 transition-opacity">Feed</button>
