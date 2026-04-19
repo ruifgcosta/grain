@@ -1,5 +1,5 @@
 /**
- * ArticleCard — cartão de artigo no feed.
+ * ArticleCard — cartão de artigo no feed. Design inspirado em post do Instagram.
  */
 
 import { useState } from 'react';
@@ -23,7 +23,6 @@ function timeAgo(timestamp: number): string {
   return `${Math.floor(diff / 86400)}d`;
 }
 
-/** Extrai o hostname para usar como URL do favicon */
 function faviconUrl(websiteUrl: string): string {
   try {
     const host = new URL(websiteUrl).hostname;
@@ -33,50 +32,12 @@ function faviconUrl(websiteUrl: string): string {
   }
 }
 
-/** Fundo de placeholder quando não há imagem */
-function ArticlePlaceholder({
-  color,
-  websiteUrl,
-  sourceName,
-}: {
-  color: string;
-  websiteUrl?: string;
-  sourceName: string;
-}) {
-  const favicon = websiteUrl ? faviconUrl(websiteUrl) : '';
-
-  return (
-    <div
-      className="w-full flex items-center justify-center"
-      style={{
-        aspectRatio: '16/7',
-        backgroundColor: color + '22', // cor da fonte com 13% opacidade
-        borderBottom: `1px solid ${color}33`,
-      }}
-    >
-      {favicon ? (
-        <img
-          src={favicon}
-          alt={sourceName}
-          className="w-8 h-8 opacity-40"
-        />
-      ) : (
-        <span
-          className="text-xl font-display font-extrabold opacity-20"
-          style={{ color }}
-        >
-          {sourceName[0]}
-        </span>
-      )}
-    </div>
-  );
-}
-
 export default function ArticleCard({ article, isRead }: ArticleCardProps) {
   const { isSignedIn } = useAuth();
   const { openSignIn } = useClerk();
   const [summaryOpen, setSummaryOpen] = useState(false);
   const [imgError, setImgError] = useState(false);
+  const [faviconError, setFaviconError] = useState(false);
   const [followDone, setFollowDone] = useState(false);
 
   const { state: summaryState, fetchSummary } = useSummary(article.id);
@@ -86,6 +47,7 @@ export default function ArticleCard({ article, isRead }: ArticleCardProps) {
   const desc  = article.translated_desc  ?? article.original_desc;
   const color = article.source_color ?? '#888';
   const showImage = article.image_url && !imgError;
+  const favicon = faviconUrl(article.original_url);
 
   function handleSummary() {
     if (!summaryOpen && summaryState.status === 'idle') {
@@ -105,12 +67,49 @@ export default function ArticleCard({ article, isRead }: ArticleCardProps) {
 
   return (
     <article
-      className={`group relative flex flex-col rounded-card border transition-colors overflow-hidden
-        ${isRead
-          ? 'border-border bg-bg2/50 opacity-60'
-          : 'border-border bg-bg2 hover:border-border2'
-        }`}
+      className={`flex flex-col rounded-2xl border border-border bg-bg2 overflow-hidden
+        ${isRead ? 'opacity-60' : ''}`}
     >
+      {/* ── Cabeçalho da fonte ── */}
+      <div className="p-3 pb-2 flex items-center gap-2">
+        {/* Favicon / dot */}
+        <div
+          className="w-7 h-7 rounded-full bg-bg3 flex items-center justify-center flex-shrink-0 overflow-hidden"
+          style={{ outline: `2px solid ${color}33` }}
+        >
+          {favicon && !faviconError ? (
+            <img
+              src={favicon}
+              alt={article.source_name}
+              className="w-full h-full object-cover"
+              onError={() => setFaviconError(true)}
+            />
+          ) : (
+            <span
+              className="w-2.5 h-2.5 rounded-full"
+              style={{ backgroundColor: color }}
+            />
+          )}
+        </div>
+
+        {/* Nome da fonte */}
+        <span className="text-sm font-medium text-text truncate">
+          {article.source_name}
+        </span>
+
+        {/* Tag badge */}
+        {article.tag && (
+          <span className="text-[10px] border border-border px-1.5 rounded-full text-muted flex-shrink-0">
+            {article.tag}
+          </span>
+        )}
+
+        {/* Separador + tempo */}
+        <span className="ml-auto text-xs text-muted flex-shrink-0">
+          {timeAgo(article.published_at)}
+        </span>
+      </div>
+
       {/* ── Imagem / Placeholder ── */}
       <a
         href={article.original_url}
@@ -123,49 +122,45 @@ export default function ArticleCard({ article, isRead }: ArticleCardProps) {
           <img
             src={article.image_url!}
             alt=""
-            style={{ aspectRatio: '16/7', width: '100%', objectFit: 'cover', display: 'block' }}
+            style={{ aspectRatio: '16/9', width: '100%', objectFit: 'cover', display: 'block' }}
             loading="lazy"
             onError={() => setImgError(true)}
           />
         ) : (
-          <ArticlePlaceholder
-            color={color}
-            websiteUrl={article.original_url}
-            sourceName={article.source_name}
-          />
-        )}
-      </a>
-
-      {/* ── Corpo ── */}
-      <div className="flex flex-col gap-3 p-4">
-        {/* Cabeçalho: fonte + tempo */}
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2 min-w-0">
-            <span
-              className="w-2 h-2 rounded-full flex-shrink-0"
-              style={{ backgroundColor: color }}
-            />
-            <span className="text-xs text-muted truncate font-medium">
-              {article.source_name}
-            </span>
-            {article.tag && (
-              <span className="hidden sm:inline text-xs text-muted border border-border px-1.5 py-0.5 rounded-full truncate">
-                {article.tag}
+          <div
+            className="w-full flex items-center justify-center"
+            style={{
+              aspectRatio: '16/9',
+              backgroundColor: color + '18',
+            }}
+          >
+            {favicon && !faviconError ? (
+              <img
+                src={favicon}
+                alt={article.source_name}
+                className="w-8 h-8 opacity-30"
+              />
+            ) : (
+              <span
+                className="text-2xl font-bold opacity-20"
+                style={{ color }}
+              >
+                {article.source_name[0]}
               </span>
             )}
           </div>
-          <span className="text-xs text-muted flex-shrink-0">
-            {timeAgo(article.published_at)}
-          </span>
-        </div>
+        )}
+      </a>
 
+      {/* ── Conteúdo ── */}
+      <div className="p-3 pt-2 flex flex-col gap-2">
         {/* Título */}
         <a
           href={article.original_url}
           target="_blank"
           rel="noopener noreferrer"
         >
-          <h2 className="text-base font-semibold text-text leading-snug hover:text-gold transition-colors line-clamp-3">
+          <h2 className="text-base font-semibold text-text leading-snug line-clamp-2 hover:text-gold transition-colors">
             {title}
           </h2>
         </a>
@@ -203,8 +198,8 @@ export default function ArticleCard({ article, isRead }: ArticleCardProps) {
           </div>
         )}
 
-        {/* Acções */}
-        <div className="flex items-center gap-2">
+        {/* ── Acções ── */}
+        <div className="flex items-center gap-1 pt-1">
           {/* Resumo IA */}
           <button
             onClick={handleSummary}
@@ -223,7 +218,7 @@ export default function ArticleCard({ article, isRead }: ArticleCardProps) {
             Resumo IA
           </button>
 
-          {/* Follow */}
+          {/* Seguir */}
           <button
             onClick={handleFollow}
             disabled={followMutation.isPending || followDone}
@@ -253,7 +248,7 @@ export default function ArticleCard({ article, isRead }: ArticleCardProps) {
             className="ml-auto flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-muted hover:text-text hover:bg-bg3 border border-transparent hover:border-border transition-colors"
           >
             <ExternalLink size={12} />
-            Abrir
+            <span className="hidden sm:inline">Abrir</span>
           </a>
         </div>
       </div>

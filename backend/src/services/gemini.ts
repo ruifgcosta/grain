@@ -17,9 +17,10 @@
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
 
-const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta';
-const MODEL_TEXT  = 'gemini-2.5-flash';
-const MODEL_EMBED = 'gemini-embedding-001';
+const GEMINI_BASE  = 'https://generativelanguage.googleapis.com/v1beta';
+const MODEL_TEXT   = 'gemini-2.5-flash';   // traduções + extractTopic (qualidade)
+const MODEL_FAST   = 'gemini-2.0-flash';   // resumos on-demand (velocidade <3s)
+const MODEL_EMBED  = 'gemini-embedding-001';
 
 // ─── Tipos internos ───────────────────────────────────────────────────────────
 
@@ -247,17 +248,20 @@ export async function generateSummary(
   text: string,
   apiKey: string
 ): Promise<string> {
-  const prompt = `Resume o seguinte artigo em Português Europeu de Portugal em no máximo 250 palavras. Sê factual, claro e conciso. Não uses bullet points.
+  // Limitar o input para não aumentar a latência (título + descrição já são suficientes)
+  const trimmedText = text.slice(0, 800);
 
-${text}`;
+  const prompt = `Resume em 3-4 frases curtas em Português Europeu. Sê directo e factual. Sem bullet points.
+
+${trimmedText}`;
 
   const responseData = await geminiPost(
-    `${GEMINI_BASE}/models/${MODEL_TEXT}:generateContent`,
+    `${GEMINI_BASE}/models/${MODEL_FAST}:generateContent`,
     {
       contents: [{ parts: [{ text: prompt }] }],
       generationConfig: {
-        temperature: 0.2,
-        maxOutputTokens: 2048,
+        temperature: 0.1,
+        maxOutputTokens: 350,  // ~80 palavras — gera muito mais rápido
       },
     },
     apiKey
