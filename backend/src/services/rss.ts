@@ -118,10 +118,12 @@ function cleanDesc(raw: unknown): string | null {
 /**
  * Normaliza um URL de imagem:
  * 1. Descodifica entidades HTML (&amp; → &, etc.)
- * 2. Faz upgrade de qualidade/tamanho para CDNs conhecidos
- *    - BBC (ichef.bbci.co.uk): /standard/240/ → /standard/480/
- *    - RTP (cdn-images.rtp.pt): ?w=350&q=50 → ?w=1200&q=85
- *    - Guardian (i.guim.co.uk): já seleccionamos 700px no media:content — sem alteração
+ * 2. Faz upgrade de qualidade/tamanho por CDN:
+ *    - BBC        ichef.bbci.co.uk       /standard/240/ → /standard/976/
+ *    - Observador bordalo.observador.pt  rs:fill:770:403/q:70 → rs:fill:1200:630/q:90
+ *    - RTP        cdn-images.rtp.pt      ?w=350&q=50 → ?w=1200&q=85
+ *    - NPR        npr.brightspotcdn.com  resize/6000x3375 → resize/1200x675
+ *    - Guardian   i.guim.co.uk           já seleccionamos 700px no media:content
  */
 function normaliseImageUrl(raw: string): string | null {
   if (!raw.startsWith('http')) return null;
@@ -130,21 +132,32 @@ function normaliseImageUrl(raw: string): string | null {
   try {
     const u = new URL(decoded);
 
-    // BBC: upgrade para 480px mínimo
+    // BBC: /ace/standard/{size}/ → /ace/standard/976/
     if (u.hostname.includes('bbci.co.uk')) {
       return decoded.replace(
         /(\/ace\/[a-z_]+\/)(\d+)\//,
-        (_, prefix, size) => `${prefix}${Math.max(parseInt(size, 10), 480)}/`
+        (_, prefix, size) => `${prefix}${Math.max(parseInt(size, 10), 976)}/`
       );
+    }
+
+    // Observador imgproxy: rs:fill:770:403/q:70 → rs:fill:1200:630/q:90
+    if (u.hostname === 'bordalo.observador.pt') {
+      return decoded
+        .replace(/rs:fill:\d+:\d+/, 'rs:fill:1200:630')
+        .replace(/\/q:\d+\//, '/q:90/');
     }
 
     // RTP: upgrade qualidade e largura
     if (u.hostname.includes('rtp.pt')) {
       if (u.searchParams.has('w')) u.searchParams.set('w', '1200');
       if (u.searchParams.has('q')) u.searchParams.set('q', '85');
-      // Remover rect (crop específico para thumbnails pequenos — desnecessário a 1200px)
       u.searchParams.delete('rect');
       return u.toString();
+    }
+
+    // NPR brightspot: resize/6000x3375!/ → resize/1200x675/ (evitar download de 6MB)
+    if (u.hostname.includes('brightspotcdn.com')) {
+      return decoded.replace(/resize\/\d+x\d+[^/]*\//, 'resize/1200x675/');
     }
 
     return decoded;

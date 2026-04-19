@@ -110,15 +110,22 @@ async function processSource(source: SourceRow, env: Env): Promise<FetchResult> 
     const newArticles = rawArticles.filter(a => !existingUrls.has(a.original_url));
     const dupCount = rawArticles.length - newArticles.length;
 
-    // ── 2b. Actualizar image_url de artigos já existentes que não tinham imagem ─
-    // Necessário para corrigir artigos importados antes do fallback de imagem HTML.
+    // ── 2b. Actualizar image_url de artigos já existentes ────────────────────
+    // Corrige artigos: sem imagem, ou com imagem de baixa qualidade do Guardian
+    // (width=140 ou width=460) que agora o RSS fornece a 700px.
     const toUpdateImage = rawArticles.filter(
       a => existingUrls.has(a.original_url) && a.image_url !== null
     );
     if (toUpdateImage.length > 0) {
       const imgStmts = toUpdateImage.map(a =>
         env.DB
-          .prepare('UPDATE articles SET image_url = ? WHERE original_url = ? AND image_url IS NULL')
+          .prepare(`UPDATE articles SET image_url = ?
+            WHERE original_url = ?
+              AND (
+                image_url IS NULL
+                OR image_url LIKE '%width=140%'
+                OR image_url LIKE '%width=460%'
+              )`)
           .bind(a.image_url, a.original_url)
       );
       for (const stmtChunk of chunk(imgStmts, 100)) {
