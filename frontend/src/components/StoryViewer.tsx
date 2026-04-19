@@ -187,10 +187,11 @@ function SingleStory({ article }: { article: Article }) {
       </div>
 
       {/* Content */}
-      <div style={{ padding: '16px 16px 20px 16px', display: 'flex', flexDirection: 'column', gap: 14, background: '#0a0a0a', flex: 1, overflowY: 'auto' }}>
-        <h2 style={{ fontSize: '1.05rem', fontWeight: 700, color: '#f0ece4', lineHeight: 1.4, margin: 0, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+      <div style={{ padding: '16px 16px 20px 16px', display: 'flex', flexDirection: 'column', background: '#0a0a0a', flex: 1, minHeight: 0 }}>
+        <h2 style={{ fontSize: '1.05rem', fontWeight: 700, color: '#f0ece4', lineHeight: 1.4, margin: 0, marginBottom: 12 }}>
           {title}
         </h2>
+        <div style={{ flex: 1 }} />
         <ArticleActions article={article} />
       </div>
     </div>

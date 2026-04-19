@@ -1,84 +1,66 @@
 /**
  * Layout principal da aplicação grain.
- * Navbar no topo (desktop) / bottom (mobile).
+ * Navbar no topo — hamburger menu (desktop + mobile) / bottom nav (mobile).
  */
 
+import { useState, useEffect, useRef } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth, useClerk } from '@clerk/react';
-import { Rss, BookmarkCheck, Settings, LogOut, LogIn, Shield } from 'lucide-react';
+import { Rss, BookmarkCheck, Settings, LogOut, LogIn, Shield, Menu, X } from 'lucide-react';
 
 interface LayoutProps {
   children: React.ReactNode;
 }
 
+const BASE = import.meta.env.BASE_URL.replace(/\/$/, '');
+
 export default function Layout({ children }: LayoutProps) {
   const { isSignedIn, isLoaded } = useAuth();
   const { openSignIn, signOut } = useClerk();
   const navigate = useNavigate();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   const navItems = [
     { to: '/feed',    label: 'Feed',    icon: Rss },
-    { to: '/follow',  label: 'Follow',  icon: BookmarkCheck },
+    { to: '/follow',  label: 'Seguir',  icon: BookmarkCheck },
     { to: '/sources', label: 'Fontes',  icon: Settings },
   ];
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    if (!menuOpen) return;
+    function handleClick(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [menuOpen]);
 
   return (
     <div className="min-h-screen bg-bg text-text font-body">
       {/* ── Navbar ── */}
       <nav className="fixed top-0 left-0 right-0 z-50 border-b border-border bg-bg/95 backdrop-blur-sm">
         <div className="max-w-3xl mx-auto px-4 h-14 flex items-center justify-between">
+
           {/* Logo */}
           <button
             onClick={() => navigate('/feed')}
-            className="flex items-center gap-2 font-display font-extrabold text-xl text-gold tracking-tight"
+            className="flex items-center gap-2.5 focus:outline-none"
           >
-            <img src={`${import.meta.env.BASE_URL.replace(/\/$/, '')}/favicon.svg`} alt="grain" className="w-6 h-6" />
-            grain
+            <img
+              src={`${BASE}/logo.svg`}
+              alt="grain"
+              style={{ width: 32, height: 32, borderRadius: 7, display: 'block', flexShrink: 0 }}
+            />
+            <span className="font-display font-extrabold text-xl text-gold tracking-tight">grain</span>
           </button>
 
-          {/* Links de navegação — desktop */}
-          <div className="hidden sm:flex items-center gap-1">
-            {navItems.map(({ to, label }) => (
-              <NavLink
-                key={to}
-                to={to}
-                className={({ isActive }) =>
-                  `px-3 py-1.5 rounded-lg text-sm transition-colors ${
-                    isActive
-                      ? 'text-gold bg-gold-dim'
-                      : 'text-muted hover:text-text hover:bg-bg3'
-                  }`
-                }
-              >
-                {label}
-              </NavLink>
-            ))}
-          </div>
-
-          {/* Auth */}
+          {/* Right side */}
           <div className="flex items-center gap-2">
-            {isLoaded && isSignedIn && (
-              <>
-                <NavLink
-                  to="/admin"
-                  className={({ isActive }) =>
-                    `p-2 rounded-lg text-muted transition-colors hover:text-text hover:bg-bg3 ${
-                      isActive ? 'text-gold' : ''
-                    }`
-                  }
-                  title="Admin"
-                >
-                  <Shield size={16} />
-                </NavLink>
-                <button
-                  onClick={() => signOut(() => navigate('/'))}
-                  className="p-2 rounded-lg text-muted hover:text-text hover:bg-bg3 transition-colors"
-                  title="Sair"
-                >
-                  <LogOut size={16} />
-                </button>
-              </>
-            )}
+            {/* Entrar button — only when signed out */}
             {isLoaded && !isSignedIn && (
               <button
                 onClick={() => openSignIn()}
@@ -88,6 +70,66 @@ export default function Layout({ children }: LayoutProps) {
                 Entrar
               </button>
             )}
+
+            {/* Hamburger */}
+            <div ref={menuRef} className="relative">
+              <button
+                onClick={() => setMenuOpen(v => !v)}
+                className="p-2 rounded-lg text-muted hover:text-text hover:bg-bg3 transition-colors"
+                aria-label="Menu"
+                aria-expanded={menuOpen}
+              >
+                {menuOpen ? <X size={20} /> : <Menu size={20} />}
+              </button>
+
+              {/* Dropdown */}
+              {menuOpen && (
+                <div className="absolute top-full right-0 mt-2 w-48 bg-bg2 border border-border rounded-2xl shadow-2xl overflow-hidden z-50">
+                  {navItems.map(({ to, label, icon: Icon }) => (
+                    <NavLink
+                      key={to}
+                      to={to}
+                      onClick={() => setMenuOpen(false)}
+                      className={({ isActive }) =>
+                        `flex items-center gap-3 px-4 py-3 text-sm transition-colors ${
+                          isActive
+                            ? 'text-gold bg-gold-dim'
+                            : 'text-text hover:bg-bg3'
+                        }`
+                      }
+                    >
+                      <Icon size={15} className="flex-shrink-0" />
+                      {label}
+                    </NavLink>
+                  ))}
+
+                  {isLoaded && isSignedIn && (
+                    <>
+                      <div className="border-t border-border mx-3 my-1" />
+                      <NavLink
+                        to="/admin"
+                        onClick={() => setMenuOpen(false)}
+                        className={({ isActive }) =>
+                          `flex items-center gap-3 px-4 py-3 text-sm transition-colors ${
+                            isActive ? 'text-gold bg-gold-dim' : 'text-muted hover:text-text hover:bg-bg3'
+                          }`
+                        }
+                      >
+                        <Shield size={15} className="flex-shrink-0" />
+                        Admin
+                      </NavLink>
+                      <button
+                        onClick={() => { setMenuOpen(false); signOut(() => navigate('/')); }}
+                        className="w-full flex items-center gap-3 px-4 py-3 text-sm text-muted hover:text-text hover:bg-bg3 transition-colors"
+                      >
+                        <LogOut size={15} className="flex-shrink-0" />
+                        Sair
+                      </button>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </nav>

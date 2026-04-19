@@ -154,7 +154,7 @@ export default function ArticleCard({ article, isRead }: ArticleCardProps) {
       </a>
 
       {/* ── Conteúdo ── */}
-      <div className="p-3 pt-2 flex flex-col gap-2">
+      <div className="p-3 pt-2 flex flex-col gap-2 flex-1">
         {/* Título */}
         <a
           href={article.original_url}
@@ -200,7 +200,7 @@ export default function ArticleCard({ article, isRead }: ArticleCardProps) {
         )}
 
         {/* ── Acções ── */}
-        <div className="flex items-center gap-1 pt-1">
+        <div className="flex items-center gap-1 pt-1 mt-auto">
           {/* Resumo IA */}
           <button
             onClick={handleSummary}

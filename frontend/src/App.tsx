@@ -39,31 +39,42 @@ export default function App() {
        * (Passo 1.4 — configuração de redirects e branding).
        */
       appearance={{
+        layout: {
+          logoImageUrl: 'https://ruifgcosta.github.io/grain/logo.svg',
+          logoLinkUrl: `${import.meta.env.BASE_URL}`,
+        },
         variables: {
           colorBackground:     '#111111',
-          colorInputBackground:'#161616',
+          colorInputBackground:'#1a1a1a',
           colorText:           '#f0ece4',
-          colorTextSecondary:  '#555555',
+          colorTextSecondary:  '#aaaaaa',
           colorPrimary:        '#c8a96e',
           colorDanger:         '#e05555',
           borderRadius:        '10px',
           fontFamily:          'DM Sans, sans-serif',
+          fontFamilyButtons:   'DM Sans, sans-serif',
         },
         elements: {
-          card:             { border: '0.5px solid #1e1e1e', boxShadow: 'none' },
-          formButtonPrimary:{ backgroundColor: '#c8a96e', color: '#0a0a0a' },
+          card:             { background: '#111111', border: '1px solid #1e1e1e', boxShadow: '0 24px 60px rgba(0,0,0,0.8)' },
+          formButtonPrimary:{ backgroundColor: '#c8a96e', color: '#0a0a0a', fontWeight: '600' },
           footerActionLink: { color: '#c8a96e' },
-          headerTitle:      { fontFamily: 'Syne, sans-serif', fontWeight: '800' },
-          // Social buttons (Google, etc.) — visíveis no tema escuro
+          headerTitle:      { fontFamily: 'Syne, sans-serif', fontWeight: '800', color: '#f0ece4' },
+          headerSubtitle:   { color: '#aaaaaa' },
           socialButtonsBlockButton: {
             backgroundColor: '#1a1a1a',
             border: '1px solid #2e2e2e',
             color: '#f0ece4',
           },
           socialButtonsBlockButtonText: { color: '#f0ece4' },
-          socialButtonsBlockButtonArrow: { color: '#888' },
           dividerLine: { backgroundColor: '#2e2e2e' },
-          dividerText: { color: '#555' },
+          dividerText: { color: '#666' },
+          formFieldInput: {
+            backgroundColor: '#1a1a1a',
+            border: '1px solid #2e2e2e',
+            color: '#f0ece4',
+          },
+          formFieldLabel: { color: '#aaaaaa' },
+          logoImage: { width: '44px', height: '44px', borderRadius: '10px' },
         },
       }}
     >
