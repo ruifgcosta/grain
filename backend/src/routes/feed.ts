@@ -72,7 +72,7 @@ feedRouter.get('/stories', optionalAuth, async (c) => {
         WHERE a.published_at >= ?
           AND a.expires_at > unixepoch()
           AND COALESCE(
-            (SELECT is_active FROM user_sources WHERE user_id = ? AND source_id = s.id),
+            (SELECT is_enabled FROM user_sources WHERE user_id = ? AND source_id = s.id),
             s.is_default
           ) = 1
         ORDER BY a.published_at DESC
@@ -152,7 +152,7 @@ feedRouter.get('/', optionalAuth, async (c) => {
         WHERE a.published_at < ?
           AND a.expires_at > unixepoch()
           AND COALESCE(
-            (SELECT is_active FROM user_sources WHERE user_id = ? AND source_id = s.id),
+            (SELECT is_enabled FROM user_sources WHERE user_id = ? AND source_id = s.id),
             s.is_default
           ) = 1
         ORDER BY a.published_at DESC

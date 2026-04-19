@@ -33,7 +33,7 @@ sourcesRouter.get('/', optionalAuth, async (c) => {
         SELECT
           s.id, s.name, s.website_url, s.logo_url, s.color, s.language,
           s.is_default,
-          COALESCE(us.is_active, s.is_default) AS user_active
+          COALESCE(us.is_enabled, s.is_default) AS user_active
         FROM sources s
         LEFT JOIN user_sources us ON us.source_id = s.id AND us.user_id = ?
         WHERE s.is_active = 1
@@ -119,7 +119,7 @@ sourcesRouter.patch('/:id', requireAuth, async (c) => {
           SELECT s.id FROM sources s
           LEFT JOIN user_sources us ON us.source_id = s.id AND us.user_id = ?
           WHERE s.is_active = 1
-            AND COALESCE(us.is_active, s.is_default) = 1
+            AND COALESCE(us.is_enabled, s.is_default) = 1
         )
       `)
       .bind(userId)
@@ -139,9 +139,9 @@ sourcesRouter.patch('/:id', requireAuth, async (c) => {
   // Upsert: inserir ou actualizar o registo user_sources
   await c.env.DB
     .prepare(`
-      INSERT INTO user_sources (user_id, source_id, is_active, added_at)
+      INSERT INTO user_sources (user_id, source_id, is_enabled, added_at)
       VALUES (?, ?, ?, ?)
-      ON CONFLICT (user_id, source_id) DO UPDATE SET is_active = excluded.is_active
+      ON CONFLICT (user_id, source_id) DO UPDATE SET is_enabled = excluded.is_enabled
     `)
     .bind(userId, sourceId, body.active ? 1 : 0, now)
     .run();
