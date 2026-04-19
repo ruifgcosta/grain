@@ -146,8 +146,10 @@ sourcesRouter.patch('/:id', requireAuth, async (c) => {
     .bind(userId, sourceId, body.active ? 1 : 0, now)
     .run();
 
-  // Invalidar cache do feed deste utilizador
-  await c.env.CACHE.delete(`feed:${userId}:${Math.floor(Date.now() / 1000)}`);
+  // Invalidar cache do feed e stories deste utilizador
+  // (a chave da 1ª página usa before=Date.now() sem cursor — sem key fixa para invalidar,
+  //  mas a cache da 1ª página já expirou em 5min; invalidar stories é o mais importante)
+  await c.env.CACHE.delete(`stories:${userId}`);
 
   return c.json({ source_id: sourceId, active: body.active });
 });

@@ -71,13 +71,10 @@ feedRouter.get('/stories', optionalAuth, async (c) => {
         LEFT JOIN ai_summaries ai ON ai.article_id = a.id
         WHERE a.published_at >= ?
           AND a.expires_at > unixepoch()
-          AND (
-            s.is_default = 1
-            OR s.id IN (
-              SELECT source_id FROM user_sources
-              WHERE user_id = ? AND is_active = 1
-            )
-          )
+          AND COALESCE(
+            (SELECT is_active FROM user_sources WHERE user_id = ? AND source_id = s.id),
+            s.is_default
+          ) = 1
         ORDER BY a.published_at DESC
         LIMIT 200
       `)
@@ -138,7 +135,7 @@ feedRouter.get('/', optionalAuth, async (c) => {
   let articles: ArticleWithSource[];
 
   if (userId) {
-    // Autenticado: fontes default + fontes activadas pelo utilizador
+    // Autenticado: respeitar user_sources (COALESCE → fallback para is_default se sem registo)
     const { results } = await c.env.DB
       .prepare(`
         SELECT
@@ -154,13 +151,10 @@ feedRouter.get('/', optionalAuth, async (c) => {
         LEFT JOIN ai_summaries ai ON ai.article_id = a.id
         WHERE a.published_at < ?
           AND a.expires_at > unixepoch()
-          AND (
-            s.is_default = 1
-            OR s.id IN (
-              SELECT source_id FROM user_sources
-              WHERE user_id = ? AND is_active = 1
-            )
-          )
+          AND COALESCE(
+            (SELECT is_active FROM user_sources WHERE user_id = ? AND source_id = s.id),
+            s.is_default
+          ) = 1
         ORDER BY a.published_at DESC
         LIMIT ?
       `)

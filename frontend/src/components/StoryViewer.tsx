@@ -22,6 +22,13 @@ interface StoryViewerProps {
   onClose: () => void;
 }
 
+interface NavProps {
+  goPrev: () => void;
+  goNext: () => void;
+  hasPrev: boolean;
+  hasNext: boolean;
+}
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function timeAgo(ts: number): string {
@@ -32,7 +39,7 @@ function timeAgo(ts: number): string {
   return `${Math.floor(d / 86400)}d`;
 }
 
-// ─── Progress bars (position only, sem animação de tempo) ────────────────────
+// ─── Progress bars ────────────────────────────────────────────────────────────
 
 function ProgressBars({ total, current }: { total: number; current: number }) {
   return (
@@ -53,7 +60,7 @@ function ProgressBars({ total, current }: { total: number; current: number }) {
   );
 }
 
-// ─── ArticleActions (per-article) ────────────────────────────────────────────
+// ─── ArticleActions ───────────────────────────────────────────────────────────
 
 function ArticleActions({ article }: { article: Article }) {
   const { isSignedIn } = useAuth();
@@ -90,22 +97,18 @@ function ArticleActions({ article }: { article: Article }) {
 
   return (
     <div className="flex flex-col gap-3" data-no-tap>
-      {/* AI Summary panel */}
       <AnimatePresence>
         {summaryOpen && (
           <motion.div
             key="summary"
-            initial={{ opacity: 0, y: 6 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 6 }}
-            transition={{ duration: 0.15 }}
+            initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 6 }} transition={{ duration: 0.15 }}
             style={{ padding: '10px 12px', borderRadius: 12, border: '1px solid #2a4a18', background: '#0e1a09', color: '#f0ece4', fontSize: 13, lineHeight: 1.55 }}
             onClick={e => e.stopPropagation()}
           >
             {summaryState.status === 'loading' && (
               <div className="flex items-center gap-2" style={{ color: '#888' }}>
-                <Loader2 size={14} className="animate-spin" />
-                <span>A gerar resumo…</span>
+                <Loader2 size={14} className="animate-spin" /><span>A gerar resumo…</span>
               </div>
             )}
             {summaryState.status === 'error' && (
@@ -121,7 +124,6 @@ function ArticleActions({ article }: { article: Article }) {
         )}
       </AnimatePresence>
 
-      {/* Buttons row */}
       <div className="flex items-center gap-2">
         <button onClick={handleSummary} style={{
           ...btnBase,
@@ -159,39 +161,36 @@ function ArticleActions({ article }: { article: Article }) {
 
 // ─── SingleStory ─────────────────────────────────────────────────────────────
 
-function SingleStory({ article }: { article: Article }) {
+function SingleStory({ article, nav }: { article: Article; nav: NavProps }) {
   const [imgError, setImgError] = useState(false);
   const color = article.source_color ?? '#888';
   const title = decodeEntities(article.translated_title ?? article.original_title);
   const desc  = decodeEntities(article.translated_desc  ?? article.original_desc);
   const showImage = !!article.image_url && !imgError;
 
+  const arrowStyle: React.CSSProperties = {
+    width: 36, height: 36, borderRadius: '50%',
+    background: 'rgba(0,0,0,0.45)',
+    border: '1px solid rgba(255,255,255,0.15)',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    cursor: 'pointer', color: '#fff',
+    backdropFilter: 'blur(4px)',
+  };
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
-      {/* Image — objectFit: contain to avoid cropping */}
+
+      {/* ── Image — nav arrows positioned inside image area ── */}
       <div style={{
-        width: '100%',
-        position: 'relative',
-        flexShrink: 0,
+        width: '100%', position: 'relative', flexShrink: 0,
         background: showImage ? '#0a0a0a' : `${color}22`,
-        overflow: 'hidden',
-        /* Natural image height up to 56% of vh */
-        maxHeight: '56vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        minHeight: 160,
+        overflow: 'hidden', maxHeight: '56vh',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 160,
       }}>
         {showImage ? (
           <img
             src={article.image_url!} alt=""
-            style={{
-              width: '100%',
-              height: '100%',
-              objectFit: 'contain',   // show full image — no cropping
-              display: 'block',
-              maxHeight: '56vh',
-            }}
+            style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block', maxHeight: '56vh' }}
             onError={() => setImgError(true)}
           />
         ) : (
@@ -201,25 +200,41 @@ function SingleStory({ article }: { article: Article }) {
             </span>
           </div>
         )}
+
+        {/* Left arrow — inside image, centered vertically */}
+        {nav.hasPrev && (
+          <button
+            onClick={e => { e.stopPropagation(); nav.goPrev(); }}
+            style={{ ...arrowStyle, position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)' }}
+            data-no-tap
+            aria-label="Anterior"
+          >
+            <ChevronLeft size={18} />
+          </button>
+        )}
+
+        {/* Right arrow — inside image, centered vertically */}
+        {nav.hasNext && (
+          <button
+            onClick={e => { e.stopPropagation(); nav.goNext(); }}
+            style={{ ...arrowStyle, position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)' }}
+            data-no-tap
+            aria-label="Próximo"
+          >
+            <ChevronRight size={18} />
+          </button>
+        )}
       </div>
 
-      {/* Content */}
+      {/* ── Content ── */}
       <div style={{ padding: '16px 16px 20px 16px', display: 'flex', flexDirection: 'column', background: '#0a0a0a', flex: 1, minHeight: 0, overflow: 'hidden' }}>
         <h2 style={{ fontSize: '1.05rem', fontWeight: 700, color: '#f0ece4', lineHeight: 1.4, margin: 0, marginBottom: 8 }}>
           {title}
         </h2>
         {desc && (
           <p style={{
-            fontSize: '0.82rem',
-            color: 'rgba(240,236,228,0.55)',
-            lineHeight: 1.5,
-            margin: 0,
-            marginBottom: 0,
-            /* clamp to 3 lines max to leave room for buttons */
-            display: '-webkit-box',
-            WebkitLineClamp: 3,
-            WebkitBoxOrient: 'vertical',
-            overflow: 'hidden',
+            fontSize: '0.82rem', color: 'rgba(240,236,228,0.55)', lineHeight: 1.5, margin: 0,
+            display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden',
           }}>
             {desc}
           </p>
@@ -238,16 +253,14 @@ export default function StoryViewer({ sourceId, articles, initialIndex = 0, onCl
   const article = articles[index];
   const color = article?.source_color ?? '#888';
 
-  // Marcar artigo como visto ao navegar para ele
   useEffect(() => {
     if (article) markArticleSeen(sourceId, article.id);
   }, [sourceId, article]);
 
-  // Keyboard navigation
   const goNext = useCallback(() => {
     setIndex(prev => {
       if (prev < articles.length - 1) return prev + 1;
-      onClose(); // fim dos artigos desta source
+      onClose();
       return prev;
     });
   }, [articles.length, onClose]);
@@ -266,7 +279,6 @@ export default function StoryViewer({ sourceId, articles, initialIndex = 0, onCl
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose, goNext, goPrev]);
 
-  // Tap zones na área da imagem (left 40% = prev, right 40% = next)
   function handleTap(e: React.MouseEvent<HTMLDivElement>) {
     const target = e.target as HTMLElement;
     if (target.closest('button') || target.closest('a') || target.closest('[data-no-tap]')) return;
@@ -279,39 +291,27 @@ export default function StoryViewer({ sourceId, articles, initialIndex = 0, onCl
 
   if (!article) return null;
 
+  const nav: NavProps = {
+    goPrev,
+    goNext,
+    hasPrev: index > 0,
+    hasNext: index < articles.length - 1,
+  };
+
   return (
-    /* Overlay escuro ao redor (só visível no desktop) */
     <div
       style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(0,0,0,0.88)', display: 'flex', alignItems: 'stretch', justifyContent: 'center' }}
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
-      {/* Container com max-width no desktop */}
       <motion.div
-        initial={{ y: '100%' }}
-        animate={{ y: 0 }}
-        exit={{ y: '100%' }}
+        initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
         transition={{ type: 'spring', stiffness: 320, damping: 34 }}
-        style={{
-          width: '100%',
-          maxWidth: 480,
-          background: '#000',
-          display: 'flex',
-          flexDirection: 'column',
-          overflow: 'hidden',
-          userSelect: 'none',
-          position: 'relative',
-        }}
+        style={{ width: '100%', maxWidth: 480, background: '#000', display: 'flex', flexDirection: 'column', overflow: 'hidden', userSelect: 'none', position: 'relative' }}
         onClick={handleTap}
       >
         {/* ── Top bar ── */}
-        <div
-          style={{ padding: '10px 12px 8px', display: 'flex', flexDirection: 'column', gap: 8, flexShrink: 0, zIndex: 10 }}
-          data-no-tap
-        >
-          {/* Progress bars */}
+        <div style={{ padding: '10px 12px 8px', display: 'flex', flexDirection: 'column', gap: 8, flexShrink: 0, zIndex: 10 }} data-no-tap>
           <ProgressBars total={articles.length} current={index} />
-
-          {/* Source + time + close */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <span style={{ width: 8, height: 8, borderRadius: '50%', background: color, flexShrink: 0 }} />
             <span style={{ fontSize: 13, fontWeight: 600, color: '#f0ece4', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -334,45 +334,13 @@ export default function StoryViewer({ sourceId, articles, initialIndex = 0, onCl
         <AnimatePresence mode="wait">
           <motion.div
             key={article.id}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             transition={{ duration: 0.15 }}
             style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}
           >
-            <SingleStory article={article} />
+            <SingleStory article={article} nav={nav} />
           </motion.div>
         </AnimatePresence>
-
-        {/* ── Nav arrows (visíveis no desktop, opcional no mobile) ── */}
-        <div
-          style={{ position: 'absolute', top: '45%', left: 8, transform: 'translateY(-50%)', zIndex: 20, pointerEvents: 'none' }}
-          data-no-tap
-        >
-          {index > 0 && (
-            <button
-              onClick={e => { e.stopPropagation(); goPrev(); }}
-              style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(255,255,255,0.15)', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#fff', pointerEvents: 'all' }}
-              aria-label="Anterior"
-            >
-              <ChevronLeft size={18} />
-            </button>
-          )}
-        </div>
-        <div
-          style={{ position: 'absolute', top: '45%', right: 8, transform: 'translateY(-50%)', zIndex: 20, pointerEvents: 'none' }}
-          data-no-tap
-        >
-          {index < articles.length - 1 && (
-            <button
-              onClick={e => { e.stopPropagation(); goNext(); }}
-              style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(255,255,255,0.15)', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#fff', pointerEvents: 'all' }}
-              aria-label="Próximo"
-            >
-              <ChevronRight size={18} />
-            </button>
-          )}
-        </div>
       </motion.div>
     </div>
   );
