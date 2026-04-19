@@ -8,6 +8,7 @@ import { Sparkles, Plus, ExternalLink, Loader2 } from 'lucide-react';
 import type { Article } from '@/types';
 import { useSummary } from '@/hooks/useSummary';
 import { useFollowTopic } from '@/hooks/useFollows';
+import { decodeEntities } from '@/lib/utils';
 
 interface ArticleCardProps {
   article: Article;
@@ -43,8 +44,8 @@ export default function ArticleCard({ article, isRead }: ArticleCardProps) {
   const { state: summaryState, fetchSummary } = useSummary(article.id);
   const followMutation = useFollowTopic();
 
-  const title = article.translated_title ?? article.original_title;
-  const desc  = article.translated_desc  ?? article.original_desc;
+  const title = decodeEntities(article.translated_title ?? article.original_title);
+  const desc  = decodeEntities(article.translated_desc  ?? article.original_desc);
   const color = article.source_color ?? '#888';
   const showImage = article.image_url && !imgError;
   const favicon = faviconUrl(article.original_url);

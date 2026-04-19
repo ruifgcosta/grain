@@ -11,6 +11,7 @@ import type { Article } from '@/types';
 import { useSummary } from '@/hooks/useSummary';
 import { useFollowTopic } from '@/hooks/useFollows';
 import { markArticleSeen } from '@/components/StoryRail';
+import { decodeEntities } from '@/lib/utils';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -63,8 +64,8 @@ function ArticleActions({ article }: { article: Article }) {
   const { state: summaryState, fetchSummary } = useSummary(article.id);
   const followMutation = useFollowTopic();
 
-  const title = article.translated_title ?? article.original_title;
-  const desc  = article.translated_desc  ?? article.original_desc;
+  const title = decodeEntities(article.translated_title ?? article.original_title);
+  const desc  = decodeEntities(article.translated_desc  ?? article.original_desc);
 
   function handleSummary(e: React.MouseEvent) {
     e.stopPropagation();
@@ -161,7 +162,7 @@ function ArticleActions({ article }: { article: Article }) {
 function SingleStory({ article }: { article: Article }) {
   const [imgError, setImgError] = useState(false);
   const color = article.source_color ?? '#888';
-  const title = article.translated_title ?? article.original_title;
+  const title = decodeEntities(article.translated_title ?? article.original_title);
   const showImage = !!article.image_url && !imgError;
 
   return (

@@ -89,7 +89,18 @@ function decodeEntities(str: string): string {
     .replace(/&#39;/g, "'")
     .replace(/&apos;/g, "'")
     .replace(/&nbsp;/g, ' ')
-    .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(parseInt(code, 10)));
+    .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(parseInt(code, 10)))
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)));
+}
+
+/**
+ * Extrai e limpa um título: descodifica entidades + normaliza espaços.
+ * Nunca remove texto — só converte entidades para caracteres reais.
+ */
+function cleanTitle(raw: unknown): string {
+  const str = toStr(raw);
+  if (!str) return '';
+  return decodeEntities(str).replace(/\s+/g, ' ').trim();
 }
 
 /**
@@ -106,30 +117,49 @@ function cleanDesc(raw: unknown): string | null {
 
 /**
  * Extrai URL de imagem a partir dos campos media do item.
- * Tenta media:content, media:thumbnail e enclosure.
+ * Tenta (por ordem): media:content → media:thumbnail → enclosure →
+ * imagem embebida no HTML da descrição (fallback para RTP, Público, etc.)
  */
 function extractImage(item: Record<string, unknown>): string | null {
   // media:content pode ser objecto {url, type} ou array
   const mediaContent = item['media:content'];
   if (mediaContent) {
     const mc = Array.isArray(mediaContent) ? mediaContent[0] : mediaContent;
-    const url = (mc as Record<string, unknown>)?.['@_url'];
-    if (url) return toStr(url);
+    const url = toStr((mc as Record<string, unknown>)?.['@_url']);
+    if (url.startsWith('http')) return url;
   }
 
   // media:thumbnail
   const mediaThumbnail = item['media:thumbnail'];
   if (mediaThumbnail) {
     const mt = Array.isArray(mediaThumbnail) ? mediaThumbnail[0] : mediaThumbnail;
-    const url = (mt as Record<string, unknown>)?.['@_url'];
-    if (url) return toStr(url);
+    const url = toStr((mt as Record<string, unknown>)?.['@_url']);
+    if (url.startsWith('http')) return url;
   }
 
   // enclosure (RSS clássico)
   const enclosure = item['enclosure'] as Record<string, unknown> | undefined;
   if (enclosure) {
     const type = toStr(enclosure['@_type']);
-    if (type.startsWith('image/')) return toStr(enclosure['@_url']);
+    const url  = toStr(enclosure['@_url']);
+    if (type.startsWith('image/') && url.startsWith('http')) return url;
+  }
+
+  // Fallback: extrair primeiro <img src="..."> do HTML da descrição ou content.
+  // Muitos feeds PT (RTP, Público, Observador) embebem a imagem aqui.
+  const htmlFields = [
+    item['description'],
+    item['content:encoded'],
+    item['content'],
+    item['summary'],
+  ];
+  for (const field of htmlFields) {
+    const raw = toStr(field);
+    if (!raw) continue;
+    // Tentar src="..." e src='...'
+    const match = raw.match(/<img[^>]+src=["']([^"']+)["']/i)
+                ?? raw.match(/<img[^>]+src=([^\s>]+)/i);
+    if (match?.[1]?.startsWith('http')) return match[1];
   }
 
   return null;
@@ -190,7 +220,7 @@ function parseRSS(parsed: Record<string, unknown>, sourceId: string): RawArticle
     const url = toStr(item['link']) || toStr(item['guid']);
     if (!url.startsWith('http')) return [];
 
-    const title = toStr(item['title']);
+    const title = cleanTitle(item['title']);
     if (!title) return [];
 
     const rawDesc = toStr(item['description']) || toStr(item['content:encoded']);
@@ -245,7 +275,7 @@ function parseAtom(parsed: Record<string, unknown>, sourceId: string): RawArticl
     const url = toStr(linkObj?.['@_href']);
     if (!url.startsWith('http')) return [];
 
-    const title = toStr(entry['title']);
+    const title = cleanTitle(entry['title']);
     if (!title) return [];
 
     const rawDesc = toStr(entry['summary']) || toStr(entry['content']);
