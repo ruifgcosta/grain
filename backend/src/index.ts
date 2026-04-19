@@ -66,6 +66,7 @@ app.get('/api/health', (c) => {
   });
 });
 
+
 /**
  * GET /api/me
  * Devolve o userId e isAdmin do token Clerk.
