@@ -15,7 +15,8 @@ export default defineConfig({
     react(),
     tailwindcss(),
     VitePWA({
-      registerType: 'autoUpdate',
+      registerType: 'prompt',
+      devOptions: { enabled: false },
       includeAssets: ['favicon.svg', 'icon-192.png', 'icon-512.png'],
       manifest: false, // usamos o manifest.json estático em /public
       workbox: {

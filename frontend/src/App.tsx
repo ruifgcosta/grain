@@ -15,6 +15,7 @@ import { queryClient } from '@/lib/queryClient';
 
 // Páginas
 import Landing from '@/pages/Landing';
+import UpdateBanner from '@/components/UpdateBanner';
 import Feed from '@/pages/Feed';
 import Follow from '@/pages/Follow';
 import Sources from '@/pages/Sources';
@@ -80,6 +81,7 @@ export default function App() {
       }}
     >
       <QueryClientProvider client={queryClient}>
+        <UpdateBanner />
         <BrowserRouter basename={import.meta.env.BASE_URL}>
           <Routes>
             {/* Landing page — apresentação pública (Passo 4.1) */}
