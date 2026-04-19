@@ -116,17 +116,41 @@ function cleanDesc(raw: unknown): string | null {
 }
 
 /**
- * Normaliza um URL de imagem: descodifica entidades HTML e upgrade de
- * thumbnails BBC de 240px para 480px para melhor qualidade visual.
+ * Normaliza um URL de imagem:
+ * 1. Descodifica entidades HTML (&amp; → &, etc.)
+ * 2. Faz upgrade de qualidade/tamanho para CDNs conhecidos
+ *    - BBC (ichef.bbci.co.uk): /standard/240/ → /standard/480/
+ *    - RTP (cdn-images.rtp.pt): ?w=350&q=50 → ?w=1200&q=85
+ *    - Guardian (i.guim.co.uk): já seleccionamos 700px no media:content — sem alteração
  */
 function normaliseImageUrl(raw: string): string | null {
   if (!raw.startsWith('http')) return null;
-  const url = decodeEntities(raw);
-  // BBC thumbnails: /ace/standard/240/ → /ace/standard/480/
-  return url.replace(
-    /(ichef\.bbci\.co\.uk\/ace\/[a-z_]+\/)(\d+)\//,
-    (_, prefix, size) => `${prefix}${Math.max(parseInt(size, 10), 480)}/`
-  );
+  const decoded = decodeEntities(raw);
+
+  try {
+    const u = new URL(decoded);
+
+    // BBC: upgrade para 480px mínimo
+    if (u.hostname.includes('bbci.co.uk')) {
+      return decoded.replace(
+        /(\/ace\/[a-z_]+\/)(\d+)\//,
+        (_, prefix, size) => `${prefix}${Math.max(parseInt(size, 10), 480)}/`
+      );
+    }
+
+    // RTP: upgrade qualidade e largura
+    if (u.hostname.includes('rtp.pt')) {
+      if (u.searchParams.has('w')) u.searchParams.set('w', '1200');
+      if (u.searchParams.has('q')) u.searchParams.set('q', '85');
+      // Remover rect (crop específico para thumbnails pequenos — desnecessário a 1200px)
+      u.searchParams.delete('rect');
+      return u.toString();
+    }
+
+    return decoded;
+  } catch {
+    return decoded;
+  }
 }
 
 /**

@@ -17,9 +17,16 @@
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
 
-const GEMINI_BASE  = 'https://generativelanguage.googleapis.com/v1beta';
-const MODEL_TEXT   = 'gemini-2.5-flash';   // traduções + extractTopic (qualidade)
-const MODEL_FAST   = 'gemini-2.5-flash';   // resumos on-demand (mesmo modelo, sem rate-limiter)
+// v1  — stable endpoint; gemini-2.0-flash disponível aqui (1500 RPD free tier)
+// v1beta — preview endpoint; gemini-2.5-flash + batchEmbedContents disponíveis aqui
+const GEMINI_V1    = 'https://generativelanguage.googleapis.com/v1';
+const GEMINI_V1B   = 'https://generativelanguage.googleapis.com/v1beta';
+
+// Operações de cron/batch: gemini-2.0-flash no v1 (1500 req/dia free tier)
+const MODEL_BATCH  = 'gemini-2.0-flash';
+// Resumos on-demand: gemini-2.5-flash no v1beta (250 req/dia, mas alta qualidade)
+const MODEL_FAST   = 'gemini-2.5-flash';
+// Embeddings: modelo dedicado, quota própria separada
 const MODEL_EMBED  = 'gemini-embedding-001';
 
 // ─── Tipos internos ───────────────────────────────────────────────────────────
@@ -44,7 +51,7 @@ export interface TranslatedItem {
 // Workers são single-threaded — este estado é partilhado dentro do mesmo isolate.
 const _reqTimestamps: number[] = [];
 const RATE_WINDOW_MS = 60_000;
-const MAX_REQ_PER_MIN = 13; // conservador: 13 de 15 para ter margem
+const MAX_REQ_PER_MIN = 8;  // conservador: 8 de 10 RPM free tier — reserva margem para on-demand
 
 async function throttleGemini(): Promise<void> {
   const now = Date.now();
@@ -71,38 +78,57 @@ async function throttleGemini(): Promise<void> {
 // ─── Fetch rápido para pedidos on-demand (sem rate limiter) ──────────────────
 
 /**
- * Versão rápida do geminiPost — SEM rate limiter e com timeout de 25s.
+ * Versão rápida do geminiPost — SEM rate limiter, com timeout de 20s por tentativa.
  * Usada para resumos on-demand iniciados pelo utilizador.
- * Se a Gemini API devolver 429, falha imediatamente com mensagem amigável.
+ *
+ * Em caso de 429, lê o header Retry-After (ou espera 8s) e tenta uma vez mais.
+ * Orçamento total: 12s espera máx + 20s timeout = 32s → dentro do limite Cloudflare
+ * porque o timer de abort só conta o tempo de rede, não a espera.
  */
 async function geminiPostFast(url: string, body: unknown, apiKey: string): Promise<unknown> {
-  const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), 25000);
+  const fullUrl = `${url}?key=${apiKey}`;
 
-  try {
-    const response = await fetch(`${url}?key=${apiKey}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-      signal: ctrl.signal,
-    });
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const ctrl  = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 20000);
 
-    if (response.status === 429) {
-      throw new Error('Serviço temporariamente sobrecarregado — tenta de novo em breve.');
+    try {
+      const response = await fetch(fullUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+        signal: ctrl.signal,
+      });
+
+      if (response.status === 429) {
+        if (attempt === 0) {
+          // Usar o Retry-After do Gemini se disponível, senão esperar 8s
+          const retryAfter = parseInt(response.headers.get('Retry-After') ?? '8', 10);
+          const waitMs = Math.min(retryAfter * 1000, 12000); // máx 12s
+          console.warn(`[grain/gemini] geminiPostFast 429 — a aguardar ${waitMs}ms para retry`);
+          await new Promise(r => setTimeout(r, waitMs));
+          continue;
+        }
+        throw new Error('Serviço temporariamente sobrecarregado. Aguarda 1 minuto e tenta de novo.');
+      }
+
+      if (!response.ok) {
+        const text = await response.text().catch(() => '');
+        throw new Error(`Gemini ${response.status}: ${text.slice(0, 200)}`);
+      }
+
+      return response.json();
+    } catch (err) {
+      if ((err as Error).name === 'AbortError') {
+        throw new Error('O resumo demorou demasiado — tenta de novo.');
+      }
+      throw err;
+    } finally {
+      clearTimeout(timer);
     }
-    if (!response.ok) {
-      const text = await response.text().catch(() => '');
-      throw new Error(`Erro ao gerar resumo (${response.status}): ${text.slice(0, 120)}`);
-    }
-    return response.json();
-  } catch (err) {
-    if ((err as Error).name === 'AbortError') {
-      throw new Error('O resumo demorou demasiado — tenta de novo.');
-    }
-    throw err;
-  } finally {
-    clearTimeout(timer);
   }
+
+  throw new Error('Serviço temporariamente sobrecarregado. Aguarda 1 minuto e tenta de novo.');
 }
 
 // ─── Utilitário de fetch com retry ────────────────────────────────────────────
@@ -190,7 +216,7 @@ Artigos a traduzir:
 ${articlesJson}`;
 
   const responseData = await geminiPost(
-    `${GEMINI_BASE}/models/${MODEL_TEXT}:generateContent`,
+    `${GEMINI_V1}/models/${MODEL_BATCH}:generateContent`,
     {
       contents: [{ parts: [{ text: prompt }] }],
       generationConfig: {
@@ -251,7 +277,7 @@ export async function generateEmbeddingsBatch(
 
   // A API de embeddings suporta batchEmbedContents para múltiplos textos
   const responseData = await geminiPost(
-    `${GEMINI_BASE}/models/${MODEL_EMBED}:batchEmbedContents`,
+    `${GEMINI_V1B}/models/${MODEL_EMBED}:batchEmbedContents`,
     {
       requests: texts.map(text => ({
         model: `models/${MODEL_EMBED}`,
@@ -293,13 +319,12 @@ export async function generateSummary(
 ${trimmedText}`;
 
   const responseData = await geminiPostFast(
-    `${GEMINI_BASE}/models/${MODEL_FAST}:generateContent`,
+    `${GEMINI_V1B}/models/${MODEL_FAST}:generateContent`,
     {
       contents: [{ parts: [{ text: prompt }] }],
       generationConfig: {
         temperature: 0.1,
         maxOutputTokens: 350,  // ~80 palavras — gera muito mais rápido
-        thinkingConfig: { thinkingBudget: 0 },  // desactivar thinking para velocidade máxima
       },
     },
     apiKey
@@ -333,7 +358,7 @@ export async function extractTopic(
 ${text}`;
 
   const responseData = await geminiPost(
-    `${GEMINI_BASE}/models/${MODEL_TEXT}:generateContent`,
+    `${GEMINI_V1}/models/${MODEL_BATCH}:generateContent`,
     {
       contents: [{ parts: [{ text: prompt }] }],
       generationConfig: {

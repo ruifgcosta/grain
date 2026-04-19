@@ -69,7 +69,8 @@ articlesRouter.get('/:id/summary', async (c) => {
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error(`[grain/articles] Erro ao gerar resumo para ${articleId}:`, msg);
-    return c.json({ error: 'Não foi possível gerar o resumo. Tenta de novo.' }, 503);
+    // Passar a mensagem real para o frontend — distingue rate-limit de outros erros
+    return c.json({ error: msg }, 503);
   }
 
   // ── 4. Guardar resumo permanente ─────────────────────────────────────────

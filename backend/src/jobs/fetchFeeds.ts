@@ -264,13 +264,16 @@ export async function runFetchFeeds(env: Env): Promise<void> {
   const startedAt = Date.now();
   console.log('[grain/fetchFeeds] A iniciar fetch de feeds —', new Date().toISOString());
 
-  // ── Corrigir URLs de imagens com &amp; (backfill incremental) ──────────────
-  // Guardian e outros feeds em XML codificam &amp; no URL do atributo.
-  // Corremos um UPDATE barato a cada execução — o WHERE garante que só afecta
-  // as linhas que realmente têm o problema (normalmente zero após a primeira corrida).
-  await env.DB
-    .prepare("UPDATE articles SET image_url = REPLACE(image_url, '&amp;', '&') WHERE image_url LIKE '%&amp;%'")
-    .run();
+  // ── Backfill incremental: corrigir URLs de imagens com problemas de encoding ──
+  // Runs a cheap batched UPDATE — the WHERE clause means it's near-zero cost
+  // once all legacy rows are fixed (normally 0 rows affected after first run).
+  await env.DB.batch([
+    // Guardian: &amp; nos query params do CDN (e.g. ?width=700&amp;quality=85)
+    env.DB.prepare("UPDATE articles SET image_url = REPLACE(image_url, '&amp;', '&') WHERE image_url LIKE '%&amp;%'"),
+    // RTP: upgrade qualidade (w=350&q=50 → w=1200&q=85)
+    env.DB.prepare("UPDATE articles SET image_url = REPLACE(REPLACE(image_url, 'w=350', 'w=1200'), 'w=400', 'w=1200') WHERE image_url LIKE '%rtp.pt%' AND image_url LIKE '%w=350%'"),
+    env.DB.prepare("UPDATE articles SET image_url = REPLACE(image_url, 'q=50', 'q=85') WHERE image_url LIKE '%rtp.pt%' AND image_url LIKE '%q=50%'"),
+  ]);
 
   // ── Buscar fontes activas ──────────────────────────────────────────────────
   const { results: sources } = await env.DB
