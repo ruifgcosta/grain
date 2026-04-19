@@ -5,6 +5,7 @@ import StoryRail, { getFirstUnseenIndex } from '@/components/StoryRail';
 import StoryViewer from '@/components/StoryViewer';
 import { useFeed } from '@/hooks/useFeed';
 import { useSources } from '@/hooks/useSources';
+import { useStories } from '@/hooks/useStories';
 import { Loader2, Search, X } from 'lucide-react';
 import type { Article } from '@/types';
 
@@ -25,22 +26,16 @@ function SkeletonCard() {
   );
 }
 
-const NOW_SECONDS = () => Math.floor(Date.now() / 1000);
-const TWENTY_FOUR_HOURS = 86400;
 
 export default function Feed() {
   const { articles, isLoading, isFetchingNextPage, hasNextPage, fetchNextPage, error } = useFeed();
   useSources(); // pre-warm cache
+  const { articles: storyPoolArticles } = useStories(); // artigos 24h para o rail
   const loaderRef = useRef<HTMLDivElement>(null);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [activeStorySourceId, setActiveStorySourceId] = useState<string | null>(null);
   const [seenVersion, setSeenVersion] = useState(0); // incrementa quando viewer fecha → StoryRail recalcula allSeen
-
-  const recentArticles = useMemo<Article[]>(() => {
-    const cutoff = NOW_SECONDS() - TWENTY_FOUR_HOURS;
-    return articles.filter(a => a.published_at > cutoff);
-  }, [articles]);
 
   const filteredArticles = useMemo<Article[]>(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -58,10 +53,10 @@ export default function Feed() {
   const storyArticles = useMemo<Article[]>(() => {
     if (!activeStorySourceId) return [];
     // Ordenar do mais antigo para o mais recente (ordem cronológica nas stories)
-    return recentArticles
+    return storyPoolArticles
       .filter(a => a.source_id === activeStorySourceId)
       .sort((a, b) => a.published_at - b.published_at);
-  }, [activeStorySourceId, recentArticles]);
+  }, [activeStorySourceId, storyPoolArticles]);
 
   useEffect(() => {
     const el = loaderRef.current;
@@ -106,9 +101,9 @@ export default function Feed() {
         </div>
 
         {/* Stories rail — hidden during search */}
-        {!isSearching && recentArticles.length > 0 && (
+        {!isSearching && storyPoolArticles.length > 0 && (
           <StoryRail
-            articles={recentArticles}
+            articles={storyPoolArticles}
             onOpenStory={(sourceId) => setActiveStorySourceId(sourceId)}
             seenVersion={seenVersion}
           />

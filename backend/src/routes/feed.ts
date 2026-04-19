@@ -35,6 +35,86 @@ type Variables = {
 
 const feedRouter = new Hono<{ Bindings: Env; Variables: Variables }>();
 
+/**
+ * GET /api/feed/stories
+ *
+ * Artigos das últimas 24h para o StoryRail.
+ * Devolve até 200 artigos sem paginação — usado apenas para o rail de stories.
+ * Cache de 5 minutos partilhada por utilizador.
+ */
+feedRouter.get('/stories', optionalAuth, async (c) => {
+  const userId = c.get('userId') ?? null;
+  const since  = Math.floor(Date.now() / 1000) - 86400; // 24h atrás
+
+  const cacheKey = `stories:${userId ?? 'default'}`;
+
+  const cached = await c.env.CACHE.get(cacheKey, 'json') as { articles: ArticleWithSource[] } | null;
+  if (cached) {
+    return c.json(cached, 200, { 'X-Cache': 'HIT' });
+  }
+
+  let articles: ArticleWithSource[];
+
+  if (userId) {
+    const { results } = await c.env.DB
+      .prepare(`
+        SELECT
+          a.id, a.source_id, a.original_url, a.original_title, a.original_desc,
+          a.translated_title, a.translated_desc, a.image_url, a.language, a.tag,
+          a.published_at, a.fetched_at, a.expires_at,
+          s.name  AS source_name,
+          s.color AS source_color,
+          s.logo_url AS source_logo,
+          CASE WHEN ai.article_id IS NOT NULL THEN 1 ELSE 0 END AS has_summary
+        FROM articles a
+        JOIN sources s ON s.id = a.source_id
+        LEFT JOIN ai_summaries ai ON ai.article_id = a.id
+        WHERE a.published_at >= ?
+          AND a.expires_at > unixepoch()
+          AND (
+            s.is_default = 1
+            OR s.id IN (
+              SELECT source_id FROM user_sources
+              WHERE user_id = ? AND is_active = 1
+            )
+          )
+        ORDER BY a.published_at DESC
+        LIMIT 200
+      `)
+      .bind(since, userId)
+      .all<ArticleWithSource>();
+    articles = results;
+  } else {
+    const { results } = await c.env.DB
+      .prepare(`
+        SELECT
+          a.id, a.source_id, a.original_url, a.original_title, a.original_desc,
+          a.translated_title, a.translated_desc, a.image_url, a.language, a.tag,
+          a.published_at, a.fetched_at, a.expires_at,
+          s.name  AS source_name,
+          s.color AS source_color,
+          s.logo_url AS source_logo,
+          CASE WHEN ai.article_id IS NOT NULL THEN 1 ELSE 0 END AS has_summary
+        FROM articles a
+        JOIN sources s ON s.id = a.source_id
+        LEFT JOIN ai_summaries ai ON ai.article_id = a.id
+        WHERE a.published_at >= ?
+          AND a.expires_at > unixepoch()
+          AND s.is_default = 1
+        ORDER BY a.published_at DESC
+        LIMIT 200
+      `)
+      .bind(since)
+      .all<ArticleWithSource>();
+    articles = results;
+  }
+
+  const response = { articles };
+  await c.env.CACHE.put(cacheKey, JSON.stringify(response), { expirationTtl: CACHE_TTL });
+
+  return c.json(response, 200, { 'X-Cache': 'MISS' });
+});
+
 feedRouter.get('/', optionalAuth, async (c) => {
   const userId = c.get('userId') ?? null;
   const beforeParam = c.req.query('before');

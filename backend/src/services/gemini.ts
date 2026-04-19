@@ -71,13 +71,13 @@ async function throttleGemini(): Promise<void> {
 // ─── Fetch rápido para pedidos on-demand (sem rate limiter) ──────────────────
 
 /**
- * Versão rápida do geminiPost — SEM rate limiter e com timeout de 9s.
+ * Versão rápida do geminiPost — SEM rate limiter e com timeout de 25s.
  * Usada para resumos on-demand iniciados pelo utilizador.
  * Se a Gemini API devolver 429, falha imediatamente com mensagem amigável.
  */
 async function geminiPostFast(url: string, body: unknown, apiKey: string): Promise<unknown> {
   const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), 9000);
+  const timer = setTimeout(() => ctrl.abort(), 25000);
 
   try {
     const response = await fetch(`${url}?key=${apiKey}`, {
@@ -299,6 +299,7 @@ ${trimmedText}`;
       generationConfig: {
         temperature: 0.1,
         maxOutputTokens: 350,  // ~80 palavras — gera muito mais rápido
+        thinkingConfig: { thinkingBudget: 0 },  // desactivar thinking para velocidade máxima
       },
     },
     apiKey

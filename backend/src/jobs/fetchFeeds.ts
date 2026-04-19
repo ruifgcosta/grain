@@ -225,6 +225,8 @@ async function processSource(source: SourceRow, env: Env): Promise<FetchResult> 
     // (a cache é reconstruída lazy na rota /api/feed)
     await env.CACHE.delete(`feed:${source.id}`);
     await env.CACHE.delete('feed:global');
+    // Invalidar cache de stories (24h) — artigos novos podem aparecer no rail
+    await env.CACHE.delete('stories:default');
 
     console.log(`[grain/fetchFeeds] ${source.id}: +${newArticles.length} novos, ${dupCount} dup`);
 

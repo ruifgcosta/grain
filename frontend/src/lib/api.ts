@@ -46,6 +46,11 @@ export const getFeed = (before?: number, token?: string | null) => {
   return apiFetch<FeedResponse>(`/feed${params}`, token);
 };
 
+// ─── Stories (artigos das últimas 24h para o rail) ───────────────────────────
+
+export const getStoriesArticles = (token?: string | null) =>
+  apiFetch<{ articles: import('@/types').Article[] }>('/feed/stories', token);
+
 // ─── Resumo IA ────────────────────────────────────────────────────────────────
 
 export const getAISummary = (articleId: string, token?: string | null) =>
