@@ -158,8 +158,11 @@ function extractImage(item: Record<string, unknown>): string | null {
     if (!raw) continue;
     // Tentar src="..." e src='...'
     const match = raw.match(/<img[^>]+src=["']([^"']+)["']/i)
-                ?? raw.match(/<img[^>]+src=([^\s>]+)/i);
-    if (match?.[1]?.startsWith('http')) return match[1];
+                ?? raw.match(/<img[^>]+src=([^\s>/"']+)/i);
+    if (match?.[1]?.startsWith('http')) {
+      // Descodificar &amp; → & e outras entidades no URL (frequente em CDATA do RTP)
+      return decodeEntities(match[1]);
+    }
   }
 
   return null;

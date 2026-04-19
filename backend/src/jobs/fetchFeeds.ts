@@ -110,6 +110,22 @@ async function processSource(source: SourceRow, env: Env): Promise<FetchResult> 
     const newArticles = rawArticles.filter(a => !existingUrls.has(a.original_url));
     const dupCount = rawArticles.length - newArticles.length;
 
+    // ── 2b. Actualizar image_url de artigos já existentes que não tinham imagem ─
+    // Necessário para corrigir artigos importados antes do fallback de imagem HTML.
+    const toUpdateImage = rawArticles.filter(
+      a => existingUrls.has(a.original_url) && a.image_url !== null
+    );
+    if (toUpdateImage.length > 0) {
+      const imgStmts = toUpdateImage.map(a =>
+        env.DB
+          .prepare('UPDATE articles SET image_url = ? WHERE original_url = ? AND image_url IS NULL')
+          .bind(a.image_url, a.original_url)
+      );
+      for (const stmtChunk of chunk(imgStmts, 100)) {
+        await env.DB.batch(stmtChunk);
+      }
+    }
+
     if (newArticles.length === 0) {
       return { source_id: source.id, articles_new: 0, articles_dup: dupCount, status: 'ok', error_msg: null };
     }

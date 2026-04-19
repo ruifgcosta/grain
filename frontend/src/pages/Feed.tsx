@@ -57,7 +57,10 @@ export default function Feed() {
 
   const storyArticles = useMemo<Article[]>(() => {
     if (!activeStorySourceId) return [];
-    return recentArticles.filter(a => a.source_id === activeStorySourceId);
+    // Ordenar do mais antigo para o mais recente (ordem cronológica nas stories)
+    return recentArticles
+      .filter(a => a.source_id === activeStorySourceId)
+      .sort((a, b) => a.published_at - b.published_at);
   }, [activeStorySourceId, recentArticles]);
 
   useEffect(() => {

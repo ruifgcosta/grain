@@ -19,7 +19,7 @@
 
 const GEMINI_BASE  = 'https://generativelanguage.googleapis.com/v1beta';
 const MODEL_TEXT   = 'gemini-2.5-flash';   // traduções + extractTopic (qualidade)
-const MODEL_FAST   = 'gemini-2.0-flash';   // resumos on-demand (velocidade <3s)
+const MODEL_FAST   = 'gemini-1.5-flash';   // resumos on-demand — free tier, ~1-2s
 const MODEL_EMBED  = 'gemini-embedding-001';
 
 // ─── Tipos internos ───────────────────────────────────────────────────────────
