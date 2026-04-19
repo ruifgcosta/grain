@@ -1,6 +1,10 @@
 /**
  * Layout principal da aplicação grain.
  * Navbar no topo — hamburger menu (desktop + mobile) / bottom nav (mobile).
+ *
+ * Navbar right side:
+ * - Signed out: "Entrar" button + hamburger (Feed, Seguir, Fontes)
+ * - Signed in:  initials badge (dropdown: Admin?, Sair) + hamburger (Feed, Seguir, Fontes)
  */
 
 import { useState, useEffect, useRef } from 'react';
@@ -27,8 +31,12 @@ export default function Layout({ children }: LayoutProps) {
   const { openSignIn, signOut } = useClerk();
   const { user } = useUser();
   const navigate = useNavigate();
+
   const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+
+  const menuRef    = useRef<HTMLDivElement>(null);
+  const userMenuRef = useRef<HTMLDivElement>(null);
 
   const navItems = [
     { to: '/feed',    label: 'Feed',    icon: Rss },
@@ -36,7 +44,7 @@ export default function Layout({ children }: LayoutProps) {
     { to: '/sources', label: 'Fontes',  icon: Settings },
   ];
 
-  // Close dropdown when clicking outside
+  // Close hamburger when clicking outside
   useEffect(() => {
     if (!menuOpen) return;
     function handleClick(e: MouseEvent) {
@@ -48,9 +56,23 @@ export default function Layout({ children }: LayoutProps) {
     return () => document.removeEventListener('mousedown', handleClick);
   }, [menuOpen]);
 
+  // Close user menu when clicking outside
+  useEffect(() => {
+    if (!userMenuOpen) return;
+    function handleClick(e: MouseEvent) {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
+        setUserMenuOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [userMenuOpen]);
+
   const initials = isSignedIn && user
     ? getInitials(user.firstName, user.lastName, user.emailAddresses?.[0]?.emailAddress)
     : null;
+
+  const displayName = user?.fullName ?? user?.emailAddresses?.[0]?.emailAddress ?? '';
 
   return (
     <div className="min-h-screen bg-bg text-text font-body">
@@ -94,32 +116,75 @@ export default function Layout({ children }: LayoutProps) {
               </button>
             )}
 
-            {/* User initials badge — only when signed in */}
+            {/* User initials badge with dropdown — only when signed in */}
             {isLoaded && isSignedIn && initials && (
-              <div
-                title={user?.fullName ?? user?.emailAddresses?.[0]?.emailAddress ?? ''}
-                style={{
-                  width: 30,
-                  height: 30,
-                  borderRadius: '50%',
-                  background: '#c8a96e22',
-                  border: '1.5px solid #c8a96e55',
-                  color: '#c8a96e',
-                  fontFamily: 'DM Sans, sans-serif',
-                  fontWeight: 600,
-                  fontSize: '0.7rem',
-                  letterSpacing: '0.02em',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  flexShrink: 0,
-                }}
-              >
-                {initials}
+              <div ref={userMenuRef} className="relative">
+                <button
+                  onClick={() => setUserMenuOpen(v => !v)}
+                  title={displayName}
+                  style={{
+                    width: 30,
+                    height: 30,
+                    borderRadius: '50%',
+                    background: userMenuOpen ? '#c8a96e33' : '#c8a96e22',
+                    border: '1.5px solid #c8a96e55',
+                    color: '#c8a96e',
+                    fontFamily: 'DM Sans, sans-serif',
+                    fontWeight: 600,
+                    fontSize: '0.7rem',
+                    letterSpacing: '0.02em',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0,
+                    cursor: 'pointer',
+                    transition: 'background 0.15s',
+                  }}
+                >
+                  {initials}
+                </button>
+
+                {/* User dropdown */}
+                {userMenuOpen && (
+                  <div className="absolute top-full right-0 mt-2 w-52 bg-bg2 border border-border rounded-2xl shadow-2xl overflow-hidden z-50">
+                    {/* User info header */}
+                    {displayName && (
+                      <div style={{ padding: '10px 16px 8px', borderBottom: '1px solid var(--color-border)' }}>
+                        <p style={{ fontSize: '0.7rem', color: 'var(--color-muted)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {displayName}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Admin link (all signed-in users can see admin — protected server-side) */}
+                    <NavLink
+                      to="/admin"
+                      onClick={() => setUserMenuOpen(false)}
+                      className={({ isActive }) =>
+                        `flex items-center gap-3 px-4 py-3 text-sm transition-colors ${
+                          isActive ? 'text-gold bg-gold-dim' : 'text-muted hover:text-text hover:bg-bg3'
+                        }`
+                      }
+                    >
+                      <Shield size={15} className="flex-shrink-0" />
+                      Admin
+                    </NavLink>
+
+                    <div className="border-t border-border mx-3 my-1" />
+
+                    <button
+                      onClick={() => { setUserMenuOpen(false); signOut(() => navigate('/')); }}
+                      className="w-full flex items-center gap-3 px-4 py-3 text-sm text-muted hover:text-text hover:bg-bg3 transition-colors"
+                    >
+                      <LogOut size={15} className="flex-shrink-0" />
+                      Sair
+                    </button>
+                  </div>
+                )}
               </div>
             )}
 
-            {/* Hamburger */}
+            {/* Hamburger — only navigation (Feed, Seguir, Fontes) */}
             <div ref={menuRef} className="relative">
               <button
                 onClick={() => setMenuOpen(v => !v)}
@@ -132,7 +197,7 @@ export default function Layout({ children }: LayoutProps) {
 
               {/* Dropdown */}
               {menuOpen && (
-                <div className="absolute top-full right-0 mt-2 w-48 bg-bg2 border border-border rounded-2xl shadow-2xl overflow-hidden z-50">
+                <div className="absolute top-full right-0 mt-2 w-44 bg-bg2 border border-border rounded-2xl shadow-2xl overflow-hidden z-50">
                   {navItems.map(({ to, label, icon: Icon }) => (
                     <NavLink
                       key={to}
@@ -150,31 +215,6 @@ export default function Layout({ children }: LayoutProps) {
                       {label}
                     </NavLink>
                   ))}
-
-                  {isLoaded && isSignedIn && (
-                    <>
-                      <div className="border-t border-border mx-3 my-1" />
-                      <NavLink
-                        to="/admin"
-                        onClick={() => setMenuOpen(false)}
-                        className={({ isActive }) =>
-                          `flex items-center gap-3 px-4 py-3 text-sm transition-colors ${
-                            isActive ? 'text-gold bg-gold-dim' : 'text-muted hover:text-text hover:bg-bg3'
-                          }`
-                        }
-                      >
-                        <Shield size={15} className="flex-shrink-0" />
-                        Admin
-                      </NavLink>
-                      <button
-                        onClick={() => { setMenuOpen(false); signOut(() => navigate('/')); }}
-                        className="w-full flex items-center gap-3 px-4 py-3 text-sm text-muted hover:text-text hover:bg-bg3 transition-colors"
-                      >
-                        <LogOut size={15} className="flex-shrink-0" />
-                        Sair
-                      </button>
-                    </>
-                  )}
                 </div>
               )}
             </div>

@@ -163,34 +163,67 @@ function SingleStory({ article }: { article: Article }) {
   const [imgError, setImgError] = useState(false);
   const color = article.source_color ?? '#888';
   const title = decodeEntities(article.translated_title ?? article.original_title);
+  const desc  = decodeEntities(article.translated_desc  ?? article.original_desc);
   const showImage = !!article.image_url && !imgError;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
-      {/* Image */}
-      <div style={{ width: '100%', height: '52vh', minHeight: 180, position: 'relative', flexShrink: 0, background: showImage ? '#000' : `${color}22`, overflow: 'hidden' }}>
+      {/* Image — objectFit: contain to avoid cropping */}
+      <div style={{
+        width: '100%',
+        position: 'relative',
+        flexShrink: 0,
+        background: showImage ? '#0a0a0a' : `${color}22`,
+        overflow: 'hidden',
+        /* Natural image height up to 56% of vh */
+        maxHeight: '56vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: 160,
+      }}>
         {showImage ? (
           <img
             src={article.image_url!} alt=""
-            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+            style={{
+              width: '100%',
+              height: '100%',
+              objectFit: 'contain',   // show full image — no cropping
+              display: 'block',
+              maxHeight: '56vh',
+            }}
             onError={() => setImgError(true)}
           />
         ) : (
-          <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ width: '100%', minHeight: 200, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <span style={{ fontSize: 56, fontWeight: 800, color, opacity: 0.2 }}>
               {article.source_name[0]?.toUpperCase() ?? '?'}
             </span>
           </div>
         )}
-        {/* Bottom gradient */}
-        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 100, background: 'linear-gradient(to top, rgba(0,0,0,0.9) 0%, transparent 100%)', pointerEvents: 'none' }} />
       </div>
 
       {/* Content */}
-      <div style={{ padding: '16px 16px 20px 16px', display: 'flex', flexDirection: 'column', background: '#0a0a0a', flex: 1, minHeight: 0 }}>
-        <h2 style={{ fontSize: '1.05rem', fontWeight: 700, color: '#f0ece4', lineHeight: 1.4, margin: 0, marginBottom: 12 }}>
+      <div style={{ padding: '16px 16px 20px 16px', display: 'flex', flexDirection: 'column', background: '#0a0a0a', flex: 1, minHeight: 0, overflow: 'hidden' }}>
+        <h2 style={{ fontSize: '1.05rem', fontWeight: 700, color: '#f0ece4', lineHeight: 1.4, margin: 0, marginBottom: 8 }}>
           {title}
         </h2>
+        {desc && (
+          <p style={{
+            fontSize: '0.82rem',
+            color: 'rgba(240,236,228,0.55)',
+            lineHeight: 1.5,
+            margin: 0,
+            marginBottom: 0,
+            /* clamp to 3 lines max to leave room for buttons */
+            display: '-webkit-box',
+            WebkitLineClamp: 3,
+            WebkitBoxOrient: 'vertical',
+            overflow: 'hidden',
+          }}>
+            {desc}
+          </p>
+        )}
         <div style={{ flex: 1 }} />
         <ArticleActions article={article} />
       </div>
