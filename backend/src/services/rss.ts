@@ -116,37 +116,80 @@ function cleanDesc(raw: unknown): string | null {
 }
 
 /**
+ * Normaliza um URL de imagem: descodifica entidades HTML e upgrade de
+ * thumbnails BBC de 240px para 480px para melhor qualidade visual.
+ */
+function normaliseImageUrl(raw: string): string | null {
+  if (!raw.startsWith('http')) return null;
+  const url = decodeEntities(raw);
+  // BBC thumbnails: /ace/standard/240/ → /ace/standard/480/
+  return url.replace(
+    /(ichef\.bbci\.co\.uk\/ace\/[a-z_]+\/)(\d+)\//,
+    (_, prefix, size) => `${prefix}${Math.max(parseInt(size, 10), 480)}/`
+  );
+}
+
+/**
  * Extrai URL de imagem a partir dos campos media do item.
- * Tenta (por ordem): media:content → media:thumbnail → enclosure →
- * imagem embebida no HTML da descrição (fallback para RTP, Público, etc.)
+ *
+ * Ordem de tentativa:
+ * 1. media:content — pode ser array de tamanhos (Guardian: 140/460/700px).
+ *    Seleciona o de maior largura declarada (@_width).
+ * 2. media:thumbnail (BBC, etc.)
+ * 3. enclosure (RSS clássico)
+ * 4. Primeiro <img src> no HTML da descrição/content (RTP, feeds sem media namespace)
+ *
+ * Todos os URLs passam por normaliseImageUrl para descodificar &amp; e
+ * fazer upgrade de thumbnails pequenos.
  */
 function extractImage(item: Record<string, unknown>): string | null {
-  // media:content pode ser objecto {url, type} ou array
+  // ── 1. media:content ────────────────────────────────────────────────────────
+  // Pode ser array (Guardian usa 3 tamanhos: 140, 460, 700px).
+  // Seleccionar o de maior @_width; se nenhum tiver @_width, usar o último.
   const mediaContent = item['media:content'];
   if (mediaContent) {
-    const mc = Array.isArray(mediaContent) ? mediaContent[0] : mediaContent;
-    const url = toStr((mc as Record<string, unknown>)?.['@_url']);
-    if (url.startsWith('http')) return url;
+    const mcList: Record<string, unknown>[] = Array.isArray(mediaContent)
+      ? mediaContent as Record<string, unknown>[]
+      : [mediaContent as Record<string, unknown>];
+
+    let bestUrl: string | null = null;
+    let bestWidth = -1;
+
+    for (const mc of mcList) {
+      const rawUrl = toStr(mc?.['@_url']);
+      const norm   = normaliseImageUrl(rawUrl);
+      if (!norm) continue;
+      const w = parseInt(toStr(mc?.['@_width'] ?? mc?.['@_medium'] ?? '0'), 10) || 0;
+      if (w > bestWidth) {
+        bestWidth = w;
+        bestUrl   = norm;
+      } else if (bestUrl === null) {
+        // sem @_width — guardar como candidato mas continuar
+        bestUrl = norm;
+      }
+    }
+
+    if (bestUrl) return bestUrl;
   }
 
-  // media:thumbnail
+  // ── 2. media:thumbnail ──────────────────────────────────────────────────────
   const mediaThumbnail = item['media:thumbnail'];
   if (mediaThumbnail) {
-    const mt = Array.isArray(mediaThumbnail) ? mediaThumbnail[0] : mediaThumbnail;
-    const url = toStr((mt as Record<string, unknown>)?.['@_url']);
-    if (url.startsWith('http')) return url;
+    const mt  = Array.isArray(mediaThumbnail) ? mediaThumbnail[0] : mediaThumbnail;
+    const url = normaliseImageUrl(toStr((mt as Record<string, unknown>)?.['@_url']));
+    if (url) return url;
   }
 
-  // enclosure (RSS clássico)
+  // ── 3. enclosure (RSS clássico) ─────────────────────────────────────────────
   const enclosure = item['enclosure'] as Record<string, unknown> | undefined;
   if (enclosure) {
     const type = toStr(enclosure['@_type']);
-    const url  = toStr(enclosure['@_url']);
-    if (type.startsWith('image/') && url.startsWith('http')) return url;
+    const url  = normaliseImageUrl(toStr(enclosure['@_url']));
+    if (type.startsWith('image/') && url) return url;
   }
 
-  // Fallback: extrair primeiro <img src="..."> do HTML da descrição ou content.
-  // Muitos feeds PT (RTP, Público, Observador) embebem a imagem aqui.
+  // ── 4. Fallback HTML — <img src> embebido na descrição ──────────────────────
+  // Feeds PT sem namespace media (RTP, etc.) incluem imagem no CDATA do description.
   const htmlFields = [
     item['description'],
     item['content:encoded'],
@@ -156,13 +199,10 @@ function extractImage(item: Record<string, unknown>): string | null {
   for (const field of htmlFields) {
     const raw = toStr(field);
     if (!raw) continue;
-    // Tentar src="..." e src='...'
     const match = raw.match(/<img[^>]+src=["']([^"']+)["']/i)
                 ?? raw.match(/<img[^>]+src=([^\s>/"']+)/i);
-    if (match?.[1]?.startsWith('http')) {
-      // Descodificar &amp; → & e outras entidades no URL (frequente em CDATA do RTP)
-      return decodeEntities(match[1]);
-    }
+    const url = match?.[1] ? normaliseImageUrl(match[1]) : null;
+    if (url) return url;
   }
 
   return null;

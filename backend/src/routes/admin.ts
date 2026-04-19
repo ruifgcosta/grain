@@ -258,4 +258,18 @@ adminRouter.post('/fetch-now', async (c) => {
   return c.json({ status: 'started', message: 'Feed fetch iniciado em background' });
 });
 
+// ─── POST /api/admin/fix-images ───────────────────────────────────────────────
+
+adminRouter.post('/fix-images', async (c) => {
+  // Corrigir URLs de imagens com &amp; na DB (legado de artigos mal inseridos)
+  const result = await c.env.DB
+    .prepare("UPDATE articles SET image_url = REPLACE(image_url, '&amp;', '&') WHERE image_url LIKE '%&amp;%'")
+    .run();
+
+  return c.json({
+    fixed: result.meta.changes ?? 0,
+    message: `${result.meta.changes ?? 0} artigos corrigidos`,
+  });
+});
+
 export { adminRouter };

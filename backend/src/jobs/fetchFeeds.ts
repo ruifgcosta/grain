@@ -264,6 +264,14 @@ export async function runFetchFeeds(env: Env): Promise<void> {
   const startedAt = Date.now();
   console.log('[grain/fetchFeeds] A iniciar fetch de feeds —', new Date().toISOString());
 
+  // ── Corrigir URLs de imagens com &amp; (backfill incremental) ──────────────
+  // Guardian e outros feeds em XML codificam &amp; no URL do atributo.
+  // Corremos um UPDATE barato a cada execução — o WHERE garante que só afecta
+  // as linhas que realmente têm o problema (normalmente zero após a primeira corrida).
+  await env.DB
+    .prepare("UPDATE articles SET image_url = REPLACE(image_url, '&amp;', '&') WHERE image_url LIKE '%&amp;%'")
+    .run();
+
   // ── Buscar fontes activas ──────────────────────────────────────────────────
   const { results: sources } = await env.DB
     .prepare('SELECT id, name, rss_url, language FROM sources WHERE is_active = 1')
