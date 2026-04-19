@@ -14,6 +14,7 @@ import { Hono } from 'hono';
 import type { Env } from '../types/index';
 import { requireAuth } from '../middleware/auth';
 import { adminOnly } from '../middleware/adminOnly';
+import { runFetchFeeds } from '../jobs/fetchFeeds';
 
 type Variables = {
   userId?: string;
@@ -247,6 +248,14 @@ adminRouter.get('/fetch-log', async (c) => {
     .all();
 
   return c.json({ logs: results });
+});
+
+// ─── POST /api/admin/fetch-now ────────────────────────────────────────────────
+
+adminRouter.post('/fetch-now', async (c) => {
+  // Disparar fetchFeeds em background (não aguardar conclusão para evitar timeout HTTP)
+  c.executionCtx.waitUntil(runFetchFeeds(c.env));
+  return c.json({ status: 'started', message: 'Feed fetch iniciado em background' });
 });
 
 export { adminRouter };
