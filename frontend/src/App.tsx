@@ -42,6 +42,7 @@ export default function App() {
         layout: {
           logoImageUrl: 'https://ruifgcosta.github.io/grain/logo.svg',
           logoLinkUrl: `${import.meta.env.BASE_URL}`,
+          logoPlacement: 'inside',
         },
         variables: {
           colorBackground:     '#111111',

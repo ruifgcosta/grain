@@ -5,7 +5,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { useAuth, useClerk } from '@clerk/react';
+import { useAuth, useClerk, useUser } from '@clerk/react';
 import { Rss, BookmarkCheck, Settings, LogOut, LogIn, Shield, Menu, X } from 'lucide-react';
 
 interface LayoutProps {
@@ -14,9 +14,18 @@ interface LayoutProps {
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, '');
 
+/** Extrai até 2 iniciais do nome/email do utilizador */
+function getInitials(firstName?: string | null, lastName?: string | null, email?: string | null): string {
+  if (firstName && lastName) return `${firstName[0]}${lastName[0]}`.toUpperCase();
+  if (firstName) return firstName.slice(0, 2).toUpperCase();
+  if (email) return email[0].toUpperCase();
+  return '?';
+}
+
 export default function Layout({ children }: LayoutProps) {
   const { isSignedIn, isLoaded } = useAuth();
   const { openSignIn, signOut } = useClerk();
+  const { user } = useUser();
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -39,6 +48,10 @@ export default function Layout({ children }: LayoutProps) {
     return () => document.removeEventListener('mousedown', handleClick);
   }, [menuOpen]);
 
+  const initials = isSignedIn && user
+    ? getInitials(user.firstName, user.lastName, user.emailAddresses?.[0]?.emailAddress)
+    : null;
+
   return (
     <div className="min-h-screen bg-bg text-text font-body">
       {/* ── Navbar ── */}
@@ -53,9 +66,19 @@ export default function Layout({ children }: LayoutProps) {
             <img
               src={`${BASE}/logo.svg`}
               alt="grain"
-              style={{ width: 32, height: 32, borderRadius: 7, display: 'block', flexShrink: 0 }}
+              width={32}
+              height={32}
+              style={{ borderRadius: 7, display: 'block', flexShrink: 0 }}
             />
-            <span className="font-display font-extrabold text-xl text-gold tracking-tight">grain</span>
+            <span style={{
+              fontFamily: 'Lora, Georgia, serif',
+              fontWeight: 600,
+              fontSize: '1.2rem',
+              letterSpacing: '-0.02em',
+              color: 'var(--color-text)',
+            }}>
+              grain
+            </span>
           </button>
 
           {/* Right side */}
@@ -69,6 +92,31 @@ export default function Layout({ children }: LayoutProps) {
                 <LogIn size={14} />
                 Entrar
               </button>
+            )}
+
+            {/* User initials badge — only when signed in */}
+            {isLoaded && isSignedIn && initials && (
+              <div
+                title={user?.fullName ?? user?.emailAddresses?.[0]?.emailAddress ?? ''}
+                style={{
+                  width: 30,
+                  height: 30,
+                  borderRadius: '50%',
+                  background: '#c8a96e22',
+                  border: '1.5px solid #c8a96e55',
+                  color: '#c8a96e',
+                  fontFamily: 'DM Sans, sans-serif',
+                  fontWeight: 600,
+                  fontSize: '0.7rem',
+                  letterSpacing: '0.02em',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0,
+                }}
+              >
+                {initials}
+              </div>
             )}
 
             {/* Hamburger */}
