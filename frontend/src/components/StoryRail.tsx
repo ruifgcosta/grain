@@ -28,21 +28,24 @@ function readSeenStore(): Record<string, string[]> {
 function writeSeenStore(store: Record<string, string[]>): void {
   try {
     localStorage.setItem(todayKey(), JSON.stringify(store));
-  } catch {
-    // quota exceeded — silently ignore
+  } catch { /* quota exceeded */ }
+}
+
+/** Marca um artigo individual como visto. Chamado pelo StoryViewer ao navegar. */
+export function markArticleSeen(sourceId: string, articleId: string): void {
+  const store = readSeenStore();
+  const existing = store[sourceId] ?? [];
+  if (!existing.includes(articleId)) {
+    store[sourceId] = [...existing, articleId];
+    writeSeenStore(store);
   }
 }
 
-export function markSourceSeen(sourceId: string, articleIds: string[]): void {
-  const store = readSeenStore();
-  const existing = store[sourceId] ?? [];
-  const merged = Array.from(new Set([...existing, ...articleIds]));
-  store[sourceId] = merged;
-  writeSeenStore(store);
-}
-
-export function getSeenArticleIds(sourceId: string): string[] {
-  return readSeenStore()[sourceId] ?? [];
+/** Retorna o índice do primeiro artigo não visto (para retomar onde ficou). */
+export function getFirstUnseenIndex(sourceId: string, articles: Article[]): number {
+  const seen = new Set(readSeenStore()[sourceId] ?? []);
+  const idx = articles.findIndex(a => !seen.has(a.id));
+  return idx === -1 ? 0 : idx; // se todos vistos, começa do início
 }
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -60,17 +63,18 @@ interface SourceGroup {
 interface StoryRailProps {
   articles: Article[];
   onOpenStory: (sourceId: string) => void;
+  /** Incrementar para forçar re-cálculo de allSeen após fechar o viewer */
+  seenVersion?: number;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-const NOW_S = Math.floor(Date.now() / 1000);
 const WINDOW_24H = 24 * 60 * 60;
 
 function faviconFromUrl(url: string): string {
   try {
     const host = new URL(url).hostname;
-    return `https://www.google.com/s2/favicons?domain=${host}&sz=64`;
+    return `https://www.google.com/s2/favicons?domain=${host}&sz=128`;
   } catch {
     return '';
   }
@@ -78,20 +82,10 @@ function faviconFromUrl(url: string): string {
 
 // ─── SourceAvatar ────────────────────────────────────────────────────────────
 
-function SourceAvatar({
-  group,
-  onClick,
-}: {
-  group: SourceGroup;
-  onClick: () => void;
-}) {
+function SourceAvatar({ group, onClick }: { group: SourceGroup; onClick: () => void }) {
   const { sourceName, sourceColor, sourceLogo, websiteUrl, allSeen } = group;
-  const bg = sourceColor ? `${sourceColor}26` : '#1e1e1e'; // 15% opacity
-  const borderStyle = allSeen
-    ? '2.5px solid #2a2a2a'
-    : '2.5px solid #b8923a';
-
   const favicon = !sourceLogo && websiteUrl ? faviconFromUrl(websiteUrl) : '';
+  const imgSrc  = sourceLogo || favicon;
 
   return (
     <button
@@ -103,41 +97,31 @@ function SourceAvatar({
       {/* Square avatar */}
       <div
         style={{
-          width: 64,
-          height: 64,
-          borderRadius: 16,
-          background: bg,
-          border: borderStyle,
+          width: 68,
+          height: 68,
+          borderRadius: 18,
+          border: allSeen ? '2.5px solid #2a2a2a' : '2.5px solid #b8923a',
+          overflow: 'hidden',
+          boxSizing: 'border-box',
+          background: sourceColor ? `${sourceColor}22` : '#1e1e1e',
+          transition: 'border-color 0.2s',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          overflow: 'hidden',
-          boxSizing: 'border-box',
-          transition: 'border-color 0.2s',
         }}
       >
-        {sourceLogo ? (
+        {imgSrc ? (
           <img
-            src={sourceLogo}
+            src={imgSrc}
             alt={sourceName}
-            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-          />
-        ) : favicon ? (
-          <img
-            src={favicon}
-            alt={sourceName}
-            style={{ width: 36, height: 36, objectFit: 'contain' }}
+            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+            onError={(e) => {
+              // fallback to letter on error
+              (e.target as HTMLImageElement).style.display = 'none';
+            }}
           />
         ) : (
-          <span
-            style={{
-              fontSize: 24,
-              fontWeight: 800,
-              color: sourceColor ?? '#888',
-              fontFamily: 'Syne, sans-serif',
-              lineHeight: 1,
-            }}
-          >
+          <span style={{ fontSize: 26, fontWeight: 800, color: sourceColor ?? '#888', lineHeight: 1 }}>
             {sourceName[0]?.toUpperCase() ?? '?'}
           </span>
         )}
@@ -145,10 +129,17 @@ function SourceAvatar({
 
       {/* Source name */}
       <span
-        className="text-muted leading-none text-center"
-        style={{ fontSize: 10, maxWidth: 64, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+        style={{
+          fontSize: 10,
+          color: '#888',
+          maxWidth: 68,
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+          textAlign: 'center',
+        }}
       >
-        {sourceName.slice(0, 8)}
+        {sourceName.length > 9 ? sourceName.slice(0, 9) + '…' : sourceName}
       </span>
     </button>
   );
@@ -156,56 +147,46 @@ function SourceAvatar({
 
 // ─── StoryRail ───────────────────────────────────────────────────────────────
 
-export default function StoryRail({ articles, onOpenStory }: StoryRailProps) {
-  const groups = useMemo<SourceGroup[]>(() => {
-    // Filter to 24h articles
-    const recent = articles.filter(a => NOW_S - a.published_at <= WINDOW_24H);
+export default function StoryRail({ articles, onOpenStory, seenVersion = 0 }: StoryRailProps) {
+  const nowS = Math.floor(Date.now() / 1000);
 
-    // Group by source_id
+  const groups = useMemo<SourceGroup[]>(() => {
+    const recent = articles.filter(a => nowS - a.published_at <= WINDOW_24H);
     const map = new Map<string, SourceGroup>();
+
     for (const a of recent) {
       if (!map.has(a.source_id)) {
         map.set(a.source_id, {
-          sourceId: a.source_id,
-          sourceName: a.source_name,
+          sourceId:    a.source_id,
+          sourceName:  a.source_name,
           sourceColor: a.source_color,
-          sourceLogo: a.source_logo,
-          websiteUrl: a.original_url,
-          articleIds: [],
-          allSeen: false,
+          sourceLogo:  a.source_logo,
+          websiteUrl:  a.original_url,
+          articleIds:  [],
+          allSeen:     false,
         });
       }
       map.get(a.source_id)!.articleIds.push(a.id);
     }
 
-    // Compute allSeen
     const seenStore = readSeenStore();
     return Array.from(map.values()).map(g => {
       const seenIds = new Set(seenStore[g.sourceId] ?? []);
       const allSeen = g.articleIds.length > 0 && g.articleIds.every(id => seenIds.has(id));
       return { ...g, allSeen };
     });
-  }, [articles]);
+  // seenVersion forces recalculation when viewer closes
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [articles, seenVersion, nowS]);
 
   if (groups.length === 0) return null;
 
   return (
-    <div
-      className="overflow-x-auto"
-      style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-    >
-      {/* Hide webkit scrollbar via inline style — no global CSS needed */}
-      <style>{`.story-rail-inner::-webkit-scrollbar { display: none; }`}</style>
-      <div
-        className="story-rail-inner flex gap-3 px-4 py-2"
-        style={{ width: 'max-content' }}
-      >
+    <div className="overflow-x-auto" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+      <style>{`.grain-story-rail::-webkit-scrollbar { display: none; }`}</style>
+      <div className="grain-story-rail flex gap-3 px-4 py-1" style={{ width: 'max-content' }}>
         {groups.map(g => (
-          <SourceAvatar
-            key={g.sourceId}
-            group={g}
-            onClick={() => onOpenStory(g.sourceId)}
-          />
+          <SourceAvatar key={g.sourceId} group={g} onClick={() => onOpenStory(g.sourceId)} />
         ))}
       </div>
     </div>

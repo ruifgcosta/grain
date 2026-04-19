@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
 import Layout from '@/components/Layout';
 import ArticleCard from '@/components/ArticleCard';
-import StoryRail from '@/components/StoryRail';
+import StoryRail, { getFirstUnseenIndex } from '@/components/StoryRail';
 import StoryViewer from '@/components/StoryViewer';
 import { useFeed } from '@/hooks/useFeed';
 import { useSources } from '@/hooks/useSources';
@@ -35,6 +35,7 @@ export default function Feed() {
 
   const [searchQuery, setSearchQuery] = useState('');
   const [activeStorySourceId, setActiveStorySourceId] = useState<string | null>(null);
+  const [seenVersion, setSeenVersion] = useState(0); // incrementa quando viewer fecha → StoryRail recalcula allSeen
 
   const recentArticles = useMemo<Article[]>(() => {
     const cutoff = NOW_SECONDS() - TWENTY_FOUR_HOURS;
@@ -106,6 +107,7 @@ export default function Feed() {
           <StoryRail
             articles={recentArticles}
             onOpenStory={(sourceId) => setActiveStorySourceId(sourceId)}
+            seenVersion={seenVersion}
           />
         )}
 
@@ -158,12 +160,15 @@ export default function Feed() {
       </div>
 
       {/* Story viewer overlay */}
-      {activeStorySourceId && (
+      {activeStorySourceId && storyArticles.length > 0 && (
         <StoryViewer
           sourceId={activeStorySourceId}
           articles={storyArticles}
-          initialIndex={0}
-          onClose={() => setActiveStorySourceId(null)}
+          initialIndex={getFirstUnseenIndex(activeStorySourceId, storyArticles)}
+          onClose={() => {
+            setActiveStorySourceId(null);
+            setSeenVersion(v => v + 1); // força StoryRail a recalcular allSeen
+          }}
         />
       )}
     </Layout>

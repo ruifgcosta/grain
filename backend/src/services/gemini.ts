@@ -68,6 +68,43 @@ async function throttleGemini(): Promise<void> {
   _reqTimestamps.push(Date.now());
 }
 
+// ─── Fetch rápido para pedidos on-demand (sem rate limiter) ──────────────────
+
+/**
+ * Versão rápida do geminiPost — SEM rate limiter e com timeout de 9s.
+ * Usada para resumos on-demand iniciados pelo utilizador.
+ * Se a Gemini API devolver 429, falha imediatamente com mensagem amigável.
+ */
+async function geminiPostFast(url: string, body: unknown, apiKey: string): Promise<unknown> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 9000);
+
+  try {
+    const response = await fetch(`${url}?key=${apiKey}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      signal: ctrl.signal,
+    });
+
+    if (response.status === 429) {
+      throw new Error('Serviço temporariamente sobrecarregado — tenta de novo em breve.');
+    }
+    if (!response.ok) {
+      const text = await response.text().catch(() => '');
+      throw new Error(`Erro ao gerar resumo (${response.status}): ${text.slice(0, 120)}`);
+    }
+    return response.json();
+  } catch (err) {
+    if ((err as Error).name === 'AbortError') {
+      throw new Error('O resumo demorou demasiado — tenta de novo.');
+    }
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 // ─── Utilitário de fetch com retry ────────────────────────────────────────────
 
 /**
@@ -255,7 +292,7 @@ export async function generateSummary(
 
 ${trimmedText}`;
 
-  const responseData = await geminiPost(
+  const responseData = await geminiPostFast(
     `${GEMINI_BASE}/models/${MODEL_FAST}:generateContent`,
     {
       contents: [{ parts: [{ text: prompt }] }],
