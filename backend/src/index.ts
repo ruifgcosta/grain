@@ -13,6 +13,7 @@ import { prettyJSON } from 'hono/pretty-json';
 import type { Env } from './types/index';
 import { requireAuth } from './middleware/auth';
 import { runFetchFeeds } from './jobs/fetchFeeds';
+import { runGenerateSummaries } from './jobs/generateSummaries';
 import { runMatchFollows } from './jobs/matchFollows';
 import { runCleanup } from './jobs/cleanup';
 import { feedRouter } from './routes/feed';
@@ -104,6 +105,9 @@ export default {
     switch (event.cron) {
       case '0 * * * *':
         await runFetchFeeds(env);
+        break;
+      case '* * * * *':
+        await runGenerateSummaries(env);
         break;
       case '30 * * * *':
         await runMatchFollows(env);

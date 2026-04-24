@@ -15,6 +15,7 @@ import type { Env } from '../types/index';
 import { requireAuth } from '../middleware/auth';
 import { adminOnly } from '../middleware/adminOnly';
 import { runFetchFeeds } from '../jobs/fetchFeeds';
+import { generateSummary } from '../services/gemini';
 
 type Variables = {
   userId?: string;
@@ -256,6 +257,58 @@ adminRouter.post('/fetch-now', async (c) => {
   // Disparar fetchFeeds em background (não aguardar conclusão para evitar timeout HTTP)
   c.executionCtx.waitUntil(runFetchFeeds(c.env));
   return c.json({ status: 'started', message: 'Feed fetch iniciado em background' });
+});
+
+// ─── POST /api/admin/summarise ───────────────────────────────────────────────
+// Gera resumos para até 3 artigos sem resumo. Corre sincronamente (dentro do HTTP timeout).
+
+adminRouter.post('/summarise', async (c) => {
+  const { results: pending } = await c.env.DB
+    .prepare(`
+      SELECT a.id, a.original_url,
+             a.translated_title, a.original_title,
+             a.translated_desc,  a.original_desc
+      FROM articles a
+      LEFT JOIN ai_summaries ai ON ai.article_id = a.id
+      WHERE ai.article_id IS NULL
+      ORDER BY a.published_at DESC
+      LIMIT 3
+    `)
+    .all<{ id: string; original_url: string; translated_title: string | null; original_title: string; translated_desc: string | null; original_desc: string | null }>();
+
+  if (pending.length === 0) {
+    return c.json({ done: 0, message: 'Sem artigos pendentes' });
+  }
+
+  let done = 0;
+  const errors: string[] = [];
+
+  for (const article of pending) {
+    try {
+      // Usar título + descrição existentes (sem Jina.ai) para respeitar timeout HTTP
+      const textForSummary = [
+        article.translated_title ?? article.original_title,
+        article.translated_desc ?? article.original_desc ?? '',
+      ].join('\n').trim();
+
+      if (!textForSummary) { errors.push(`${article.id}: sem texto`); continue; }
+
+      const summary = await generateSummary(textForSummary, c.env.GEMINI_API_KEY);
+      const now = Math.floor(Date.now() / 1000);
+      await c.env.DB
+        .prepare('INSERT OR REPLACE INTO ai_summaries (article_id, summary, created_at) VALUES (?, ?, ?)')
+        .bind(article.id, summary, now)
+        .run();
+      done++;
+    } catch (err) {
+      errors.push(`${article.id}: ${(err as Error).message}`);
+    }
+  }
+
+  // Invalidar cache
+  await c.env.CACHE.delete('stories:default');
+
+  return c.json({ done, pending: pending.length - done, errors });
 });
 
 // ─── POST /api/admin/fix-images ───────────────────────────────────────────────

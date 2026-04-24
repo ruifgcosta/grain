@@ -351,9 +351,12 @@ export async function generateSummaryBatch(
   fullText: string,
   apiKey: string
 ): Promise<string> {
-  const prompt = `Resume em 3-4 frases em Português Europeu de Portugal. Sê directo e factual. Sem bullet points. Sem frases introdutórias como "O artigo fala sobre" ou "Este artigo descreve".
+  const prompt = `Cria um resumo informativo em Português Europeu de Portugal com 5 a 7 frases.
+Inclui: o que aconteceu, quem está envolvido, o contexto relevante e o impacto ou consequências.
+Usa parágrafos corridos, sem bullet points.
+Começa directamente com o assunto — nunca uses frases introdutórias como "O artigo fala sobre", "Este texto descreve" ou similares.
 
-${fullText.slice(0, 4000)}`;
+${fullText.slice(0, 5000)}`;
 
   const responseData = await geminiPost(
     `${GEMINI_V1}/models/${MODEL_BATCH}:generateContent`,
@@ -361,7 +364,7 @@ ${fullText.slice(0, 4000)}`;
       contents: [{ parts: [{ text: prompt }] }],
       generationConfig: {
         temperature: 0.2,
-        maxOutputTokens: 350,
+        maxOutputTokens: 600,
       },
     },
     apiKey
@@ -393,13 +396,15 @@ export async function extractTopic(
 
 ${text}`;
 
-  const responseData = await geminiPost(
-    `${GEMINI_V1}/models/${MODEL_BATCH}:generateContent`,
+  // geminiPostFast: sem rate limiter, timeout de 20s — adequado para pedidos on-demand HTTP
+  // gemini-2.5-flash no v1beta: quota separada, não interfere com os crons de batch
+  const responseData = await geminiPostFast(
+    `${GEMINI_V1B}/models/${MODEL_FAST}:generateContent`,
     {
       contents: [{ parts: [{ text: prompt }] }],
       generationConfig: {
         temperature: 0.1,
-        maxOutputTokens: 512,
+        maxOutputTokens: 50,
       },
     },
     apiKey
