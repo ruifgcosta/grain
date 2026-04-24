@@ -311,10 +311,12 @@ export async function generateSummary(
   text: string,
   apiKey: string
 ): Promise<string> {
-  // Limitar o input para não aumentar a latência (título + descrição já são suficientes)
-  const trimmedText = text.slice(0, 800);
+  const trimmedText = text.slice(0, 3000);
 
-  const prompt = `Resume em 3-4 frases curtas em Português Europeu. Sê directo e factual. Sem bullet points.
+  const prompt = `Cria um resumo informativo em Português Europeu de Portugal com 5 a 7 frases completas.
+Inclui o que aconteceu, quem está envolvido, o contexto e o impacto.
+Usa frases completas e corridas, sem bullet points.
+Começa directamente com o assunto — nunca uses frases como "O artigo fala sobre" ou "Este resumo descreve".
 
 ${trimmedText}`;
 
@@ -323,8 +325,8 @@ ${trimmedText}`;
     {
       contents: [{ parts: [{ text: prompt }] }],
       generationConfig: {
-        temperature: 0.1,
-        maxOutputTokens: 350,  // ~80 palavras — gera muito mais rápido
+        temperature: 0.2,
+        maxOutputTokens: 600,
       },
     },
     apiKey

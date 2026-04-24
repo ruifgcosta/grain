@@ -12,7 +12,7 @@
  */
 
 import { fetchArticleText } from '../services/scraper';
-import { generateSummaryBatch } from '../services/gemini';
+import { generateSummaryBatch, generateSummary } from '../services/gemini';
 import type { Env } from '../types/index';
 
 export async function runGenerateSummaries(env: Env): Promise<void> {
@@ -49,40 +49,58 @@ export async function runGenerateSummaries(env: Env): Promise<void> {
     // 1. Tentar obter texto completo via Jina.ai (timeout de 12s)
     const fullText = await fetchArticleText(article.original_url, env.JINA_API_KEY || undefined);
 
-    // 2. Fallback para título + descrição se Jina falhou ou devolveu pouco texto
-    const textForSummary = fullText.length > 200
-      ? fullText
-      : [
-          article.translated_title ?? article.original_title,
-          article.translated_desc  ?? article.original_desc ?? '',
-        ].join('\n\n').trim();
+    // 2. Construir texto para o resumo
+    const rssText = [
+      article.translated_title ?? article.original_title,
+      article.translated_desc  ?? article.original_desc ?? '',
+    ].join('\n\n').trim();
 
-    if (!textForSummary) {
-      console.warn(`[grain/summaries] Sem texto disponível para: ${article.id}`);
+    const textForSummary = fullText.length > 200 ? fullText : rssText;
+
+    // 3. Saltar artigos com texto insuficiente para um resumo de qualidade
+    //    (ex: artigos paywalled cujo RSS só tem o título)
+    if (textForSummary.length < 80) {
+      console.warn(`[grain/summaries] Texto insuficiente (${textForSummary.length} chars), a saltar: ${article.id}`);
+      // Inserir placeholder para não tentar de novo continuamente
+      const now = Math.floor(Date.now() / 1000);
+      await env.DB
+        .prepare('INSERT OR REPLACE INTO ai_summaries (article_id, summary, created_at) VALUES (?, ?, ?)')
+        .bind(article.id, rssText || (article.translated_title ?? article.original_title), now)
+        .run();
       return;
     }
 
-    // 3. Gerar resumo detalhado
-    const summary = await generateSummaryBatch(textForSummary, env.GEMINI_API_KEY);
+    // 4. Gerar resumo — tentar 2.0-flash primeiro, cair para 2.5-flash em caso de 429
+    let summary: string;
+    try {
+      summary = await generateSummaryBatch(textForSummary, env.GEMINI_API_KEY);
+    } catch (err) {
+      const msg = (err as Error).message ?? '';
+      if (msg.includes('429') || msg.includes('quota') || msg.includes('RESOURCE_EXHAUSTED')) {
+        // Quota do 2.0-flash esgotada → fallback para 2.5-flash
+        console.warn(`[grain/summaries] 2.0-flash quota esgotada, a usar 2.5-flash para: ${article.id}`);
+        summary = await generateSummary(textForSummary, env.GEMINI_API_KEY);
+      } else {
+        throw err;
+      }
+    }
 
-    // 4. Guardar na DB
+    // 5. Guardar na DB
     const now = Math.floor(Date.now() / 1000);
     await env.DB
       .prepare('INSERT OR REPLACE INTO ai_summaries (article_id, summary, created_at) VALUES (?, ?, ?)')
       .bind(article.id, summary, now)
       .run();
 
-    // 5. Invalidar cache para que o artigo apareça imediatamente no feed
+    // 6. Invalidar cache para que o artigo apareça imediatamente no feed
     await Promise.all([
       env.CACHE.delete('stories:default'),
       env.CACHE.delete('stories:null'),
     ]);
 
-    console.log(`[grain/summaries] ✓ Resumo guardado: ${article.id}`);
+    console.log(`[grain/summaries] ✓ ${article.id} (${summary.length} chars)`);
   } catch (err) {
     const msg = (err as Error).message ?? String(err);
-    // 429 = quota temporariamente esgotada → tentar no próximo minuto
-    // Outros erros → artigo será tentado de novo no próximo minuto
     console.error(`[grain/summaries] ✗ ${article.id}: ${msg}`);
   }
 }
