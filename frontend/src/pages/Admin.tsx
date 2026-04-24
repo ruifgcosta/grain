@@ -14,7 +14,8 @@ function useAdminStats() {
     queryKey: ['admin', 'stats'],
     queryFn: async () => {
       const token = await getToken();
-      const r = await fetch('/api/admin/stats', {
+      const base = (import.meta.env.VITE_API_BASE_URL ?? '') + '/api';
+      const r = await fetch(`${base}/admin/stats`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!r.ok) throw new Error('Sem acesso');
@@ -37,7 +38,8 @@ function useAdminFetchLog() {
     queryKey: ['admin', 'fetch-log'],
     queryFn: async () => {
       const token = await getToken();
-      const r = await fetch('/api/admin/fetch-log?limit=30', {
+      const base = (import.meta.env.VITE_API_BASE_URL ?? '') + '/api';
+      const r = await fetch(`${base}/admin/fetch-log?limit=30`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!r.ok) throw new Error('Sem acesso');
