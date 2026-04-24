@@ -102,10 +102,10 @@ export default {
     console.log('[grain] Cron disparado:', event.cron, 'às', new Date().toISOString());
 
     switch (event.cron) {
-      case '*/30 * * * *':
+      case '0 * * * *':
         await runFetchFeeds(env);
         break;
-      case '0 * * * *':
+      case '30 * * * *':
         await runMatchFollows(env);
         break;
       case '0 3 * * *':

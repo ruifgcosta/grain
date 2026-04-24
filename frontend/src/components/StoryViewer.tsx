@@ -76,7 +76,8 @@ function ArticleActions({ article }: { article: Article }) {
 
   function handleSummary(e: React.MouseEvent) {
     e.stopPropagation();
-    if (!summaryOpen && summaryState.status === 'idle') fetchSummary();
+    // If pre-generated summary exists: just toggle (no API call needed)
+    if (!article.summary && !summaryOpen && summaryState.status === 'idle') fetchSummary();
     setSummaryOpen(prev => !prev);
   }
 
@@ -106,20 +107,28 @@ function ArticleActions({ article }: { article: Article }) {
             style={{ padding: '10px 12px', borderRadius: 12, border: '1px solid #2a4a18', background: '#0e1a09', color: '#f0ece4', fontSize: 13, lineHeight: 1.55 }}
             onClick={e => e.stopPropagation()}
           >
-            {summaryState.status === 'loading' && (
-              <div className="flex items-center gap-2" style={{ color: '#888' }}>
-                <Loader2 size={14} className="animate-spin" /><span>A gerar resumo…</span>
-              </div>
+            {article.summary ? (
+              // Pre-generated summary — instant, no loading state
+              <p>{article.summary}</p>
+            ) : (
+              // Fallback: on-demand via API
+              <>
+                {summaryState.status === 'loading' && (
+                  <div className="flex items-center gap-2" style={{ color: '#888' }}>
+                    <Loader2 size={14} className="animate-spin" /><span>A gerar resumo…</span>
+                  </div>
+                )}
+                {summaryState.status === 'error' && (
+                  <div className="flex items-center justify-between gap-2">
+                    <p style={{ color: '#888', fontSize: 12 }}>{summaryState.message}</p>
+                    <button onClick={e => { e.stopPropagation(); fetchSummary(); }} style={{ color: '#c8a96e', fontSize: 12, flexShrink: 0, background: 'none', border: 'none', cursor: 'pointer' }}>
+                      Tentar de novo
+                    </button>
+                  </div>
+                )}
+                {summaryState.status === 'success' && <p>{summaryState.summary}</p>}
+              </>
             )}
-            {summaryState.status === 'error' && (
-              <div className="flex items-center justify-between gap-2">
-                <p style={{ color: '#888', fontSize: 12 }}>{summaryState.message}</p>
-                <button onClick={e => { e.stopPropagation(); fetchSummary(); }} style={{ color: '#c8a96e', fontSize: 12, flexShrink: 0, background: 'none', border: 'none', cursor: 'pointer' }}>
-                  Tentar de novo
-                </button>
-              </div>
-            )}
-            {summaryState.status === 'success' && <p>{summaryState.summary}</p>}
           </motion.div>
         )}
       </AnimatePresence>
@@ -131,7 +140,7 @@ function ArticleActions({ article }: { article: Article }) {
           background: summaryOpen ? '#0e1a09' : 'rgba(255,255,255,0.1)',
           color: summaryOpen ? '#7ab832' : '#ddd',
         }}>
-          {summaryState.status === 'loading' ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
+          {!article.summary && summaryState.status === 'loading' ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
           Resumo IA
         </button>
 

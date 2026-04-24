@@ -20,6 +20,8 @@
 
 import { fetchRSSFeed, parseArticles, type RawArticle } from '../services/rss';
 import { translateBatch, generateEmbeddingsBatch, type TranslateItem } from '../services/gemini';
+import { fetchArticleText } from '../services/scraper';
+import { generateSummaryBatch } from '../services/gemini';
 import type { Env } from '../types/index';
 
 // Dias de TTL para artigos normais (convertido depois para timestamp)
@@ -324,6 +326,72 @@ export async function runFetchFeeds(env: Env): Promise<void> {
   if (logStmts.length > 0) {
     await env.DB.batch(logStmts);
   }
+
+  // ── Gerar resumos para artigos novos (pipeline de summarização) ──────────────
+  // SUMMARIES_PER_RUN = 1 para testes — aumentar para 10 quando confirmado que funciona.
+  const SUMMARIES_PER_RUN = 1;
+
+  const { results: pendingArticles } = await env.DB
+    .prepare(`
+      SELECT a.id, a.original_url,
+             a.translated_title, a.original_title,
+             a.translated_desc,  a.original_desc
+      FROM articles a
+      LEFT JOIN ai_summaries ai ON ai.article_id = a.id
+      WHERE ai.article_id IS NULL
+      ORDER BY a.published_at DESC
+      LIMIT ?
+    `)
+    .bind(SUMMARIES_PER_RUN)
+    .all<{
+      id: string;
+      original_url: string;
+      translated_title: string | null;
+      original_title: string;
+      translated_desc: string | null;
+      original_desc: string | null;
+    }>();
+
+  for (const article of pendingArticles) {
+    try {
+      // 1. Buscar texto completo via Jina.ai Reader
+      const fullText = await fetchArticleText(article.original_url, env.JINA_API_KEY || undefined);
+
+      // 2. Fallback: usar snippet do RSS se o Jina falhou
+      const textForSummary = fullText.length > 150
+        ? fullText
+        : [
+            article.translated_title ?? article.original_title,
+            article.translated_desc  ?? article.original_desc ?? '',
+          ].join('\n').trim();
+
+      if (!textForSummary) {
+        console.warn(`[grain/fetchFeeds] Sem texto para resumo: ${article.id}`);
+        continue;
+      }
+
+      // 3. Gerar resumo com Gemini 2.0 Flash
+      const summary = await generateSummaryBatch(textForSummary, env.GEMINI_API_KEY);
+
+      // 4. Guardar na DB
+      const nowTs = Math.floor(Date.now() / 1000);
+      await env.DB
+        .prepare(`INSERT OR REPLACE INTO ai_summaries (article_id, summary, created_at) VALUES (?, ?, ?)`)
+        .bind(article.id, summary, nowTs)
+        .run();
+
+      // 5. Invalidar cache de stories (artigo agora visível)
+      await env.CACHE.delete('stories:default');
+
+      console.log(`[grain/fetchFeeds] ✓ Resumo gerado: ${article.id}`);
+    } catch (err) {
+      console.error(`[grain/fetchFeeds] ✗ Resumo falhou para ${article.id}:`, (err as Error).message);
+      // Artigo fica sem resumo — não aparece no feed até ao próximo cron
+    }
+  }
+
+  const summaryCount = pendingArticles.length;
+  console.log(`[grain/fetchFeeds] Resumos processados: ${summaryCount}`);
 
   // ── Sumário final ─────────────────────────────────────────────────────────
   const totalNew = results.reduce((s, r) => s + r.articles_new, 0);

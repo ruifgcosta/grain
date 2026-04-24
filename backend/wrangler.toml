@@ -35,7 +35,7 @@ id      = "6cc1cf9b03ce45af99fb0ae72d1b17c7"
 # JOB 1 — fetchFeeds: cada 30 minutos
 # JOB 2 — matchFollows: cada hora (no início)
 # JOB 3 — cleanup: todos os dias às 3h da manhã
-crons = ["*/30 * * * *", "0 * * * *", "0 3 * * *"]
+crons = ["0 * * * *", "30 * * * *", "0 3 * * *"]
 
 # ─── Desenvolvimento local ────────────────────────────────────────────────────
 [dev]

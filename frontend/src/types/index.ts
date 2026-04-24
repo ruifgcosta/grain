@@ -36,6 +36,7 @@ export interface Article {
   source_color: string | null;
   source_logo: string | null;
   has_summary: number;   // 0 | 1
+  summary?: string;      // pré-gerado pelo cron — presente para todos os artigos no feed
 }
 
 // ─── Artigo de follow (com campos extra) ─────────────────────────────────────

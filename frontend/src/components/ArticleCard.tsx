@@ -51,7 +51,8 @@ export default function ArticleCard({ article, isRead }: ArticleCardProps) {
   const favicon = faviconUrl(article.original_url);
 
   function handleSummary() {
-    if (!summaryOpen && summaryState.status === 'idle') {
+    // If pre-generated summary exists: just toggle (no API call needed)
+    if (!article.summary && !summaryOpen && summaryState.status === 'idle') {
       fetchSummary();
     }
     setSummaryOpen(prev => !prev);
@@ -176,25 +177,33 @@ export default function ArticleCard({ article, isRead }: ArticleCardProps) {
         {/* Resumo IA expandido */}
         {summaryOpen && (
           <div className="p-3 rounded-xl bg-green-bg border border-green-bdr text-sm text-text leading-relaxed">
-            {summaryState.status === 'loading' && (
-              <div className="flex items-center gap-2 text-muted">
-                <Loader2 size={14} className="animate-spin" />
-                <span>A gerar resumo…</span>
-              </div>
-            )}
-            {summaryState.status === 'error' && (
-              <div className="flex items-center justify-between gap-2">
-                <p className="text-muted text-xs">{summaryState.message}</p>
-                <button
-                  onClick={fetchSummary}
-                  className="text-xs text-gold hover:text-gold2 flex-shrink-0"
-                >
-                  Tentar de novo
-                </button>
-              </div>
-            )}
-            {summaryState.status === 'success' && (
-              <p>{summaryState.summary}</p>
+            {article.summary ? (
+              // Pre-generated summary — instant, no loading state
+              <p>{article.summary}</p>
+            ) : (
+              // Fallback: on-demand via API
+              <>
+                {summaryState.status === 'loading' && (
+                  <div className="flex items-center gap-2 text-muted">
+                    <Loader2 size={14} className="animate-spin" />
+                    <span>A gerar resumo…</span>
+                  </div>
+                )}
+                {summaryState.status === 'error' && (
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-muted text-xs">{summaryState.message}</p>
+                    <button
+                      onClick={fetchSummary}
+                      className="text-xs text-gold hover:text-gold2 flex-shrink-0"
+                    >
+                      Tentar de novo
+                    </button>
+                  </div>
+                )}
+                {summaryState.status === 'success' && (
+                  <p>{summaryState.summary}</p>
+                )}
+              </>
             )}
           </div>
         )}
@@ -212,7 +221,7 @@ export default function ArticleCard({ article, isRead }: ArticleCardProps) {
                   : 'text-muted hover:text-green hover:bg-green-bg border border-transparent'
               }`}
           >
-            {summaryState.status === 'loading'
+            {!article.summary && summaryState.status === 'loading'
               ? <Loader2 size={12} className="animate-spin" />
               : <Sparkles size={12} />
             }

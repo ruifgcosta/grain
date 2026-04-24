@@ -65,10 +65,11 @@ feedRouter.get('/stories', optionalAuth, async (c) => {
           s.name  AS source_name,
           s.color AS source_color,
           s.logo_url AS source_logo,
-          CASE WHEN ai.article_id IS NOT NULL THEN 1 ELSE 0 END AS has_summary
+          ai.summary,
+          1 AS has_summary
         FROM articles a
         JOIN sources s ON s.id = a.source_id
-        LEFT JOIN ai_summaries ai ON ai.article_id = a.id
+        INNER JOIN ai_summaries ai ON ai.article_id = a.id
         WHERE a.published_at >= ?
           AND a.expires_at > unixepoch()
           AND COALESCE(
@@ -91,10 +92,11 @@ feedRouter.get('/stories', optionalAuth, async (c) => {
           s.name  AS source_name,
           s.color AS source_color,
           s.logo_url AS source_logo,
-          CASE WHEN ai.article_id IS NOT NULL THEN 1 ELSE 0 END AS has_summary
+          ai.summary,
+          1 AS has_summary
         FROM articles a
         JOIN sources s ON s.id = a.source_id
-        LEFT JOIN ai_summaries ai ON ai.article_id = a.id
+        INNER JOIN ai_summaries ai ON ai.article_id = a.id
         WHERE a.published_at >= ?
           AND a.expires_at > unixepoch()
           AND s.is_default = 1
@@ -145,10 +147,11 @@ feedRouter.get('/', optionalAuth, async (c) => {
           s.name  AS source_name,
           s.color AS source_color,
           s.logo_url AS source_logo,
-          CASE WHEN ai.article_id IS NOT NULL THEN 1 ELSE 0 END AS has_summary
+          ai.summary,
+          1 AS has_summary
         FROM articles a
         JOIN sources s ON s.id = a.source_id
-        LEFT JOIN ai_summaries ai ON ai.article_id = a.id
+        INNER JOIN ai_summaries ai ON ai.article_id = a.id
         WHERE a.published_at < ?
           AND a.expires_at > unixepoch()
           AND COALESCE(
@@ -173,10 +176,11 @@ feedRouter.get('/', optionalAuth, async (c) => {
           s.name  AS source_name,
           s.color AS source_color,
           s.logo_url AS source_logo,
-          CASE WHEN ai.article_id IS NOT NULL THEN 1 ELSE 0 END AS has_summary
+          ai.summary,
+          1 AS has_summary
         FROM articles a
         JOIN sources s ON s.id = a.source_id
-        LEFT JOIN ai_summaries ai ON ai.article_id = a.id
+        INNER JOIN ai_summaries ai ON ai.article_id = a.id
         WHERE a.published_at < ?
           AND a.expires_at > unixepoch()
           AND s.is_default = 1

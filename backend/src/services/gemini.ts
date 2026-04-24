@@ -336,6 +336,42 @@ ${trimmedText}`;
   return summary;
 }
 
+// ─── Resumo batch (cron) ──────────────────────────────────────────────────────
+
+/**
+ * Gera resumo em PT-PT a partir de texto completo do artigo.
+ * Versão para uso em cron (batch) — usa gemini-2.0-flash com rate limiter.
+ * Ao contrário de generateSummary (on-demand), esta função não tem timeout agressivo.
+ *
+ * @param fullText - Texto completo extraído via Jina.ai (até 4000 chars)
+ * @param apiKey   - Chave de API Gemini
+ * @returns Resumo em PT-PT com 3-4 frases
+ */
+export async function generateSummaryBatch(
+  fullText: string,
+  apiKey: string
+): Promise<string> {
+  const prompt = `Resume em 3-4 frases em Português Europeu de Portugal. Sê directo e factual. Sem bullet points. Sem frases introdutórias como "O artigo fala sobre" ou "Este artigo descreve".
+
+${fullText.slice(0, 4000)}`;
+
+  const responseData = await geminiPost(
+    `${GEMINI_V1}/models/${MODEL_BATCH}:generateContent`,
+    {
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: {
+        temperature: 0.2,
+        maxOutputTokens: 350,
+      },
+    },
+    apiKey
+  ) as { candidates: Array<{ content: { parts: Array<{ text: string }> } }> };
+
+  const summary = responseData.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+  if (!summary) throw new Error('Gemini generateSummaryBatch: resposta vazia');
+  return summary;
+}
+
 // ─── Extracção de tema ────────────────────────────────────────────────────────
 
 /**

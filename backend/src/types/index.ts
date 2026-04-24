@@ -32,6 +32,7 @@ export interface Env {
   DEDUP_THRESHOLD: string;            // "0.90"
   SUMMARY_MAX_WORDS: string;          // "250"
   ADMIN_USER_ID: string;
+  JINA_API_KEY: string; // optional secret — empty string if not configured
 }
 
 // ─── Modelos da base de dados ──────────────────────────────────────────────────
@@ -142,7 +143,8 @@ export interface ArticleWithSource extends Article {
   source_name: string;
   source_color: string | null;
   source_logo: string | null;
-  has_summary: number; // 0 | 1 — indica se já existe resumo em cache
+  has_summary: number;
+  summary: string; // always present — only articles with summaries are shown
 }
 
 /** Resposta paginada do feed */
