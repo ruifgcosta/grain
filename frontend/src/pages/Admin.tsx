@@ -76,24 +76,22 @@ function timeStr(ts: number) {
   });
 }
 
-function useFetchNow() {
+function useAdminAction(endpoint: string, invalidateDelay = 2000) {
   const { getToken } = useAuth();
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async () => {
       const token = await getToken();
       const base = (import.meta.env.VITE_API_BASE_URL ?? '') + '/api';
-      const r = await fetch(`${base}/admin/fetch-now`, {
+      const r = await fetch(`${base}/admin/${endpoint}`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (!r.ok) throw new Error('Erro ao iniciar fetch');
-      return r.json();
+      if (!r.ok) throw new Error('Erro');
+      return r.json() as Promise<Record<string, unknown>>;
     },
     onSuccess: () => {
-      setTimeout(() => {
-        qc.invalidateQueries({ queryKey: ['admin'] });
-      }, 5000);
+      setTimeout(() => qc.invalidateQueries({ queryKey: ['admin'] }), invalidateDelay);
     },
   });
 }
@@ -102,7 +100,8 @@ export default function Admin() {
   const { isSignedIn } = useAuth();
   const stats = useAdminStats();
   const fetchLog = useAdminFetchLog();
-  const fetchNow = useFetchNow();
+  const fetchNow = useAdminAction('fetch-now', 5000);
+  const summarise = useAdminAction('summarise', 1000);
 
   if (!isSignedIn) {
     return (
@@ -134,14 +133,25 @@ export default function Admin() {
             <h1 className="font-display font-extrabold text-2xl text-text">Admin</h1>
             <p className="text-sm text-muted mt-1">Estatísticas e gestão do grain.</p>
           </div>
-          <button
-            onClick={() => fetchNow.mutate()}
-            disabled={fetchNow.isPending}
-            className="flex items-center gap-2 px-3 py-2 rounded-xl border border-border bg-bg2 text-sm text-text hover:bg-bg3 disabled:opacity-50 transition-colors flex-shrink-0"
-          >
-            {fetchNow.isPending ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
-            {fetchNow.isPending ? 'A correr…' : fetchNow.isSuccess ? 'Iniciado!' : 'Fetch Now'}
-          </button>
+          <div className="flex gap-2 flex-shrink-0">
+            <button
+              onClick={() => summarise.mutate()}
+              disabled={summarise.isPending}
+              className="flex items-center gap-2 px-3 py-2 rounded-xl border border-border bg-bg2 text-sm text-text hover:bg-bg3 disabled:opacity-50 transition-colors"
+              title={summarise.data ? JSON.stringify(summarise.data) : 'Gera resumos para 3 artigos'}
+            >
+              {summarise.isPending ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+              {summarise.isPending ? 'A resumir…' : summarise.isSuccess ? `✓ ${(summarise.data as {done?:number})?.done ?? ''} feitos` : 'Resumir 3'}
+            </button>
+            <button
+              onClick={() => fetchNow.mutate()}
+              disabled={fetchNow.isPending}
+              className="flex items-center gap-2 px-3 py-2 rounded-xl border border-border bg-bg2 text-sm text-text hover:bg-bg3 disabled:opacity-50 transition-colors"
+            >
+              {fetchNow.isPending ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+              {fetchNow.isPending ? 'A correr…' : 'Fetch Now'}
+            </button>
+          </div>
         </div>
 
         {/* ── Stats ── */}
