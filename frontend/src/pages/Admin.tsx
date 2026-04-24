@@ -3,10 +3,10 @@
  * Acesso restrito — só utilizadores com isAdmin=true (verificado no backend).
  */
 
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@clerk/react';
 import Layout from '@/components/Layout';
-import { Shield, Loader2 } from 'lucide-react';
+import { Shield, Loader2, RefreshCw } from 'lucide-react';
 
 function useAdminStats() {
   const { getToken, isSignedIn } = useAuth();
@@ -76,10 +76,33 @@ function timeStr(ts: number) {
   });
 }
 
+function useFetchNow() {
+  const { getToken } = useAuth();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const token = await getToken();
+      const base = (import.meta.env.VITE_API_BASE_URL ?? '') + '/api';
+      const r = await fetch(`${base}/admin/fetch-now`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!r.ok) throw new Error('Erro ao iniciar fetch');
+      return r.json();
+    },
+    onSuccess: () => {
+      setTimeout(() => {
+        qc.invalidateQueries({ queryKey: ['admin'] });
+      }, 5000);
+    },
+  });
+}
+
 export default function Admin() {
   const { isSignedIn } = useAuth();
   const stats = useAdminStats();
   const fetchLog = useAdminFetchLog();
+  const fetchNow = useFetchNow();
 
   if (!isSignedIn) {
     return (
@@ -106,9 +129,19 @@ export default function Admin() {
   return (
     <Layout>
       <div className="max-w-3xl mx-auto px-4 py-6">
-        <div className="mb-6">
-          <h1 className="font-display font-extrabold text-2xl text-text">Admin</h1>
-          <p className="text-sm text-muted mt-1">Estatísticas e gestão do grain.</p>
+        <div className="mb-6 flex items-start justify-between gap-4">
+          <div>
+            <h1 className="font-display font-extrabold text-2xl text-text">Admin</h1>
+            <p className="text-sm text-muted mt-1">Estatísticas e gestão do grain.</p>
+          </div>
+          <button
+            onClick={() => fetchNow.mutate()}
+            disabled={fetchNow.isPending}
+            className="flex items-center gap-2 px-3 py-2 rounded-xl border border-border bg-bg2 text-sm text-text hover:bg-bg3 disabled:opacity-50 transition-colors flex-shrink-0"
+          >
+            {fetchNow.isPending ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+            {fetchNow.isPending ? 'A correr…' : fetchNow.isSuccess ? 'Iniciado!' : 'Fetch Now'}
+          </button>
         </div>
 
         {/* ── Stats ── */}
