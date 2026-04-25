@@ -12,7 +12,7 @@
  */
 
 import { fetchArticleText } from '../services/scraper';
-import { generateSummaryBatch, generateSummary } from '../services/gemini';
+import { generateSummary } from '../services/gemini';
 import type { Env } from '../types/index';
 
 export async function runGenerateSummaries(env: Env): Promise<void> {
@@ -70,20 +70,8 @@ export async function runGenerateSummaries(env: Env): Promise<void> {
       return;
     }
 
-    // 4. Gerar resumo — tentar 2.0-flash primeiro, cair para 2.5-flash em caso de 429
-    let summary: string;
-    try {
-      summary = await generateSummaryBatch(textForSummary, env.GEMINI_API_KEY);
-    } catch (err) {
-      const msg = (err as Error).message ?? '';
-      if (msg.includes('429') || msg.includes('quota') || msg.includes('RESOURCE_EXHAUSTED')) {
-        // Quota do 2.0-flash esgotada → fallback para 2.5-flash
-        console.warn(`[grain/summaries] 2.0-flash quota esgotada, a usar 2.5-flash para: ${article.id}`);
-        summary = await generateSummary(textForSummary, env.GEMINI_API_KEY);
-      } else {
-        throw err;
-      }
-    }
+    // 4. Gerar resumo com gemini-2.5-flash (geminiPostFast — timeout 20s, sem retry loops)
+    const summary = await generateSummary(textForSummary, env.GEMINI_API_KEY);
 
     // 5. Guardar na DB
     const now = Math.floor(Date.now() / 1000);
