@@ -31,7 +31,7 @@ export function useFeed() {
 
   return {
     articles,
-    isLoading: query.isLoading,
+    isLoading: query.isLoading || !isLoaded,
     isFetchingNextPage: query.isFetchingNextPage,
     hasNextPage: query.hasNextPage,
     fetchNextPage: query.fetchNextPage,
